@@ -175,6 +175,10 @@ export interface AgentRuntimeState {
   pressure?: number;
   /** Consecutive-equivalent physics ticks spent above fatal pressure. */
   highPressureTicks?: number;
+  /** Simulation elapsedSeconds at the moment this agent first reached
+   * "arrived", set by VenueSimulation.tick (not here - computeDesiredDirections
+   * has no notion of wall-clock sim time). Used for the 95%-arrival metric. */
+  arrivedAtSeconds?: number;
 }
 
 export interface SpawnAgentDeps {

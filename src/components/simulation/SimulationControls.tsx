@@ -1,3 +1,5 @@
+import type { ArrivalMetrics } from "../../simulation/metrics";
+
 const PLAYBACK_RATES = [0.25, 0.5, 1, 2, 4];
 
 export interface SimulationCounts {
@@ -17,6 +19,8 @@ export interface SimulationControlsProps {
   onChangePopulation: (population: number) => void;
   onReset: () => void;
   counts: SimulationCounts;
+  metrics: ArrivalMetrics;
+  bottleneckCount: number;
   elapsedSeconds: number;
 }
 
@@ -35,6 +39,8 @@ export function SimulationControls({
   onChangePopulation,
   onReset,
   counts,
+  metrics,
+  bottleneckCount,
   elapsedSeconds,
 }: SimulationControlsProps) {
   return (
@@ -66,8 +72,10 @@ export function SimulationControls({
         초기화
       </button>
       <span className="sim-status">
-        경과 {formatElapsed(elapsedSeconds)} · 이동 {counts.moving} · 도착 {counts.arrived} · 위험 노출{" "}
-        {counts.dead} · 대기 {counts.pendingSpawn}
+        경과 {formatElapsed(elapsedSeconds)} · 이동 {counts.moving} · 도착 {counts.arrived}(
+        {metrics.arrivalRatePercent.toFixed(0)}%) · 95% 대피시간{" "}
+        {metrics.evacuationP95Seconds !== null ? `${metrics.evacuationP95Seconds.toFixed(1)}s` : "측정 중"} · 병목{" "}
+        {bottleneckCount} · 고압력 위험 노출 {metrics.highPressureExposed} · 대기 {counts.pendingSpawn}
       </span>
     </div>
   );

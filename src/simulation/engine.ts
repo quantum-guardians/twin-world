@@ -1,5 +1,6 @@
 import type { Venue } from "../domain/types";
 import { buildCorridors, type Corridor, type JunctionHub } from "../domain/corridors";
+import { computeCorridorOccupancy } from "../domain/density";
 import { mulberry32 } from "../domain/rng";
 import {
   buildAdjacency,
@@ -12,6 +13,7 @@ import {
 } from "./agents";
 import { createSfmWorld, rebuildWalls, stepSocialForce, type SfmWorld } from "./socialForce";
 import { updatePressureDeaths } from "./pressure";
+import { BottleneckTracker, computeArrivalMetrics, type ArrivalMetrics } from "./metrics";
 import { ADD_AGENTS_BATCH_INTERVAL_MS, ADD_AGENTS_BATCH_SIZE } from "../domain/simPresets";
 
 export interface SimulationOptions {
@@ -19,12 +21,19 @@ export interface SimulationOptions {
   seed: number;
 }
 
+// Density/bottleneck state is deliberately recomputed on a low-frequency
+// cadence rather than every 60 Hz physics tick - see density.ts's doc
+// comment. Occupancy is an O(agents * corridors) scan, and the resulting
+// number doesn't change meaningfully within a fraction of a second anyway.
+const DENSITY_SAMPLE_INTERVAL_MS = 250;
+
 /**
  * Ties the ported route-finding/physics/pressure modules to one venue and
- * scenario. Owns no rendering or timing loop of its own - callers advance
- * it with tick(dtMs) from whatever clock they use (React hook with
- * requestAnimationFrame for the live 3D view, a plain for-loop for
- * headless baseline-vs-optimized comparison runs).
+ * scenario, plus the risk metrics derived from them (density, bottlenecks,
+ * arrival/evacuation stats). Owns no rendering or timing loop of its own -
+ * callers advance it with tick(dtMs) from whatever clock they use (React
+ * hook with requestAnimationFrame for the live 3D view, a plain for-loop
+ * for headless baseline-vs-optimized comparison runs).
  */
 export class VenueSimulation {
   readonly venue: Venue;
@@ -36,12 +45,15 @@ export class VenueSimulation {
   readonly lastValidPositions = new Map<string, { x: number; y: number }>();
 
   private readonly rng: () => number;
+  private readonly bottleneckTracker = new BottleneckTracker();
   private pendingSpawnCount: number;
   private msSinceLastSpawnBatch = 0;
+  private msSinceLastDensitySample = 0;
   private nextAgentIndex = 0;
 
   elapsedSeconds = 0;
   tickCount = 0;
+  densityByCorridor = new Map<string, number>();
 
   constructor(venue: Venue, options: SimulationOptions) {
     this.venue = venue;
@@ -79,9 +91,22 @@ export class VenueSimulation {
     }
   }
 
+  private sampleDensityAndBottlenecks(dtMs: number): void {
+    this.msSinceLastDensitySample += dtMs;
+    if (this.msSinceLastDensitySample < DENSITY_SAMPLE_INTERVAL_MS) return;
+    const dtSeconds = this.msSinceLastDensitySample / 1000;
+    this.msSinceLastDensitySample = 0;
+
+    const positions = Array.from(this.world.agents.values(), (a) => a.position);
+    this.densityByCorridor = computeCorridorOccupancy(this.corridors, positions);
+    this.bottleneckTracker.update(this.corridors, this.world, this.densityByCorridor, dtSeconds);
+  }
+
   /** Advances the simulation by one fixed physics tick. */
   tick(dtMs: number): void {
     this.drainSpawnQueue(dtMs);
+
+    const wasMoving = new Set(this.agents.filter((a) => a.state === "moving").map((a) => a.id));
 
     const desired = computeDesiredDirections(this.agents, this.world);
     stepSocialForce(this.world, desired, dtMs);
@@ -91,10 +116,22 @@ export class VenueSimulation {
 
     this.elapsedSeconds += dtMs / 1000;
     this.tickCount += 1;
+
+    for (const agent of this.agents) {
+      if (agent.state === "arrived" && wasMoving.has(agent.id) && agent.arrivedAtSeconds === undefined) {
+        agent.arrivedAtSeconds = this.elapsedSeconds;
+      }
+    }
+
+    this.sampleDensityAndBottlenecks(dtMs);
   }
 
   get remainingToSpawn(): number {
     return this.pendingSpawnCount;
+  }
+
+  get bottleneckCorridorIds(): ReadonlySet<string> {
+    return this.bottleneckTracker.bottleneckCorridorIds;
   }
 
   counts() {
@@ -107,5 +144,9 @@ export class VenueSimulation {
       else dead++;
     }
     return { total: this.agents.length, moving, arrived, dead, pendingSpawn: this.pendingSpawnCount };
+  }
+
+  metrics(): ArrivalMetrics {
+    return computeArrivalMetrics(this.agents);
   }
 }
