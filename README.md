@@ -1,3 +1,72 @@
+# Twin World
+
+다중밀집 사고(군중 밀집) 시뮬레이션 MVP. 부산 축제거리 그래프를 편집하고, MR2S로 일방통행 동선을 최적화한 뒤, Social Force Model 기반 3D 군중 시뮬레이션으로 기준안과 최적화안의 밀집도·병목·대피시간을 비교하고 Upstage Solar LLM으로 분석 보고서를 생성합니다.
+
+**배포된 데모**: https://twin-world.vercel.app
+
+## 실행 방법
+
+### 요구 사항
+
+- Node.js 20.19+ 또는 22.12+ (Vite 7 요구 버전. 로컬 개발 시 20.18.x에서도 경고만 뜨고 대체로 동작하지만 권장하지 않습니다)
+- Upstage API 키 — 자연어 시나리오 구조화·AI 분석 보고서 기능에만 필요합니다. 없어도 그래프 편집·3D 시뮬레이션·MR2S 최적화는 정상 동작합니다.
+
+### 설치
+
+```bash
+npm install
+```
+
+### 환경 변수
+
+`.env.example`을 복사해 `.env.local`을 만들고 값을 채웁니다.
+
+```bash
+cp .env.example .env.local
+```
+
+| 변수 | 필수 여부 | 설명 |
+| --- | --- | --- |
+| `UPSTAGE_API_KEY` | AI 기능 사용 시 | 서버 전용 코드(`api/`)에서만 읽으며 브라우저에 노출되지 않습니다. |
+| `VITE_PROXY_TARGET` | 아니오 | MR2S 백엔드 로컬 프록시 대상. 기본값은 배포된 `https://quantum.yunseong.dev`. |
+
+### 개발 서버 실행
+
+```bash
+npm run dev
+```
+
+`http://localhost:5173`에서 확인합니다. `/api/scenario`, `/api/report`(Upstage 연동)도 Vite dev 서버 미들웨어를 통해 그대로 로컬에서 동작하므로 Vercel CLI 없이 전체 기능을 테스트할 수 있습니다.
+
+### 테스트
+
+```bash
+npm run test
+```
+
+### 프로덕션 빌드
+
+```bash
+npm run build
+```
+
+### 배포 (Vercel)
+
+```bash
+npx vercel --prod
+```
+
+Vercel 프로젝트에 `UPSTAGE_API_KEY`가 Production/Preview/Development 환경 변수로 등록되어 있어야 하며, `vercel.json`이 `/mr2s-api/*` 요청을 MR2S 백엔드로 프록시합니다.
+
+### 주요 화면 흐름
+
+1. **프로젝트/장소 선택** — 부산 축제거리 프리셋 또는 새 그래프로 시작
+2. **그래프 편집** — 노드·간선 편집, `MR2S 일방통행 최적화` 버튼으로 실제 배포된 MR2S 백엔드 호출
+3. **3D 시뮬레이션** — Dijkstra 경로탐색 + Social Force Model 기반 에이전트 이동, 밀집도 히트맵, AI 자연어 시나리오 구조화(인원수)
+4. **결과 비교** — 기준안(양방향)과 최적화안(MR2S)의 도착률·대피시간·병목·고압력 위험 노출 비교, AI 분석 보고서 생성 및 Markdown 내보내기
+
+---
+
 # AI Builder Sprint 2026
 
 > 총 168시간, AI와 함께 만드는 도전
