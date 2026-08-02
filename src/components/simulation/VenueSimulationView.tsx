@@ -5,6 +5,7 @@ import { VenueScene } from "../../three/VenueScene";
 import { Agents } from "../../three/Agents";
 import { DensityHeatmap } from "../../three/DensityHeatmap";
 import { SimulationControls } from "./SimulationControls";
+import { ScenarioInput } from "./ScenarioInput";
 import { DEFAULT_AGENT_COUNT } from "../../domain/simPresets";
 
 export interface VenueSimulationViewProps {
@@ -22,6 +23,7 @@ export function VenueSimulationView({ venue }: VenueSimulationViewProps) {
 
   return (
     <div className="sim-view">
+      <ScenarioInput defaultPopulation={population} onApplyPopulation={setPopulation} />
       <SimulationControls
         playing={controls.playing}
         onTogglePlaying={() => controls.setPlaying(!controls.playing)}

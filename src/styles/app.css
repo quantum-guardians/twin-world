@@ -326,3 +326,69 @@ body {
   font-size: 0.82rem;
   width: 100%;
 }
+
+/* AI scenario input + report panel */
+
+.scenario-input {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+  padding: 0.6rem 1rem;
+  border-bottom: 1px solid #2a2d33;
+  flex-wrap: wrap;
+}
+
+.scenario-textarea {
+  flex: 1;
+  min-width: 260px;
+  background: #23262d;
+  border: 1px solid #33373f;
+  color: #e6e6e6;
+  border-radius: 6px;
+  padding: 0.4rem 0.6rem;
+  font-size: 0.85rem;
+  font-family: inherit;
+  resize: vertical;
+}
+
+.scenario-result {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+  font-size: 0.82rem;
+  color: #9aa0aa;
+}
+
+.scenario-warning {
+  color: #e0b25a;
+  margin: 0;
+}
+
+.report-panel {
+  padding: 0.75rem 1rem;
+  border-bottom: 1px solid #2a2d33;
+}
+
+.report-panel-actions {
+  display: flex;
+  gap: 0.6rem;
+}
+
+.report-body {
+  margin-top: 0.75rem;
+  font-size: 0.85rem;
+  max-height: 30vh;
+  overflow-y: auto;
+}
+
+.report-body h4 {
+  margin: 0.75rem 0 0.3rem;
+  color: #9aa0aa;
+  font-size: 0.82rem;
+}
+
+.report-body ul {
+  margin: 0;
+  padding-left: 1.1rem;
+}

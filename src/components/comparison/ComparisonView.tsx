@@ -6,6 +6,7 @@ import { Agents } from "../../three/Agents";
 import { DensityHeatmap } from "../../three/DensityHeatmap";
 import { SimulationControls } from "../simulation/SimulationControls";
 import { ComparisonMetricsTable } from "./ComparisonMetricsTable";
+import { ReportPanel } from "./ReportPanel";
 import { DEFAULT_AGENT_COUNT } from "../../domain/simPresets";
 
 export interface ComparisonViewProps {
@@ -56,6 +57,7 @@ export function ComparisonView({ baselineVenue, optimizedVenue }: ComparisonView
         </div>
         <ComparisonMetricsTable baseline={baseline} optimized={optimized} />
       </div>
+      <ReportPanel venue={baselineVenue} population={population} baseline={baseline} optimized={optimized} />
       <SimulationControls
         playing={controls.playing}
         onTogglePlaying={() => controls.setPlaying(!controls.playing)}
