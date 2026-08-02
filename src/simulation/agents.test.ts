@@ -100,4 +100,27 @@ describe("spawnAgent", () => {
     const adjacency = buildAdjacency(venue);
     expect(spawnAgent("a1", { world, venue, adjacency, rng: () => 0.1 })).toBeNull();
   });
+
+  it("assigns a child age group and a child-range render height for a low draw", () => {
+    const venue = lineVenue();
+    const world = createSfmWorld();
+    const adjacency = buildAdjacency(venue);
+    // A constant low rng() satisfies every draw in spawnAgent, including the
+    // age-group check (< AGENT_CHILD_FRACTION = 0.12), so this deterministically
+    // produces a child.
+    const agent = spawnAgent("a1", { world, venue, adjacency, rng: () => 0.05 });
+    expect(agent!.ageGroup).toBe("child");
+    expect(agent!.renderHeightM).toBeGreaterThanOrEqual(1.2);
+    expect(agent!.renderHeightM).toBeLessThanOrEqual(1.7);
+  });
+
+  it("assigns an adult age group and an adult-range render height for a high draw", () => {
+    const venue = lineVenue();
+    const world = createSfmWorld();
+    const adjacency = buildAdjacency(venue);
+    const agent = spawnAgent("a1", { world, venue, adjacency, rng: () => 0.9 });
+    expect(agent!.ageGroup).toBe("adult");
+    expect(agent!.renderHeightM).toBeGreaterThanOrEqual(2.2);
+    expect(agent!.renderHeightM).toBeLessThanOrEqual(2.8);
+  });
 });

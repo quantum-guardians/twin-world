@@ -2,10 +2,16 @@ import { useMemo, useRef } from "react";
 import { useFrame } from "@react-three/fiber";
 import * as THREE from "three";
 import type { VenueSimulation } from "../simulation/engine";
-import { AGENT_RADIUS } from "../domain/simPresets";
+import { AGENT_RENDER_HEIGHT_ADULT_MAX, AGENT_RENDER_RADIUS_AT_MAX_HEIGHT } from "../domain/simPresets";
 
-const AGENT_HEIGHT = 1.6; // m, purely visual (capsule height incl. caps)
-const CAPSULE_BODY_LENGTH = Math.max(AGENT_HEIGHT - 2 * AGENT_RADIUS, 0.05);
+// Unit capsule (radius 0.5, cylindrical body length 1 -> total height 2).
+// InstancedMesh requires one shared geometry, so a mixed crowd of
+// different sizes is achieved by non-uniformly scaling each instance in
+// useFrame to reach that agent's actual renderHeightM/radius rather than
+// building a geometry per agent.
+const UNIT_RADIUS = 0.5;
+const UNIT_BODY_LENGTH = 1;
+const UNIT_HEIGHT = UNIT_BODY_LENGTH + 2 * UNIT_RADIUS;
 
 const COLOR_MOVING = new THREE.Color("#e8c15a");
 const COLOR_ARRIVED = new THREE.Color("#4a5162");
@@ -19,11 +25,13 @@ export interface AgentsProps {
 }
 
 /**
- * Renders every agent as one instance of a shared capsule mesh, positions
- * and colors updated imperatively in useFrame by reading the simulation's
- * mutable state directly. Population can reach the hundreds at 60 Hz, so
- * this intentionally bypasses React's per-agent reconciliation (no <mesh>
- * per agent) - only the instance buffers are touched each frame.
+ * Renders every agent as one instance of a shared capsule mesh, positions/
+ * scale/colors updated imperatively in useFrame by reading the
+ * simulation's mutable state directly. Population can reach the hundreds
+ * at 60 Hz, so this intentionally bypasses React's per-agent
+ * reconciliation (no <mesh> per agent) - only the instance buffers are
+ * touched each frame. Radius scales with height so a child renders as a
+ * smaller person rather than a shrunken adult.
  */
 export function Agents({ simulation, capacity }: AgentsProps) {
   const meshRef = useRef<THREE.InstancedMesh>(null);
@@ -40,8 +48,11 @@ export function Agents({ simulation, capacity }: AgentsProps) {
       if (!body) continue;
       if (i >= safeCapacity) break;
 
-      dummy.position.set(body.position.x, AGENT_HEIGHT / 2, body.position.y);
+      const height = agent.renderHeightM;
+      const radius = AGENT_RENDER_RADIUS_AT_MAX_HEIGHT * (height / AGENT_RENDER_HEIGHT_ADULT_MAX);
+      dummy.position.set(body.position.x, height / 2, body.position.y);
       dummy.rotation.set(0, 0, 0);
+      dummy.scale.set(radius / UNIT_RADIUS, height / UNIT_HEIGHT, radius / UNIT_RADIUS);
       dummy.updateMatrix();
       mesh.setMatrixAt(i, dummy.matrix);
 
@@ -56,7 +67,7 @@ export function Agents({ simulation, capacity }: AgentsProps) {
 
   return (
     <instancedMesh ref={meshRef} args={[undefined, undefined, safeCapacity]} frustumCulled={false}>
-      <capsuleGeometry args={[AGENT_RADIUS, CAPSULE_BODY_LENGTH, 4, 8]} />
+      <capsuleGeometry args={[UNIT_RADIUS, UNIT_BODY_LENGTH, 4, 8]} />
       <meshStandardMaterial />
     </instancedMesh>
   );

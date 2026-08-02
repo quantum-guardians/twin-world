@@ -30,9 +30,17 @@ function useVenueGeometry(venue: Venue) {
 export interface VenueSceneProps {
   venue: Venue;
   children?: ReactNode;
+  /** Skip the default overview camera position + OrbitControls - used for
+   * "에이전트 시점" mode, where a child (AgentPovCamera) drives the active
+   * camera's position/orientation every frame instead. Both would otherwise
+   * fight over the same camera each frame. */
+  disableOrbitControls?: boolean;
+  /** Wider FOV reads more naturally for an eye-level first-person view than
+   * the default overview framing. */
+  fov?: number;
 }
 
-export function VenueScene({ venue, children }: VenueSceneProps) {
+export function VenueScene({ venue, children, disableOrbitControls = false, fov = 50 }: VenueSceneProps) {
   const { corridors, hubs, buildings, centerX, centerY, diagonal } = useVenueGeometry(venue);
 
   const camDistance = diagonal * 0.9;
@@ -45,8 +53,22 @@ export function VenueScene({ venue, children }: VenueSceneProps) {
   return (
     <div className="venue-scene">
       <Canvas shadows={false}>
-        <PerspectiveCamera makeDefault position={camPosition} fov={50} near={0.5} far={diagonal * 8} />
-        <OrbitControls target={[centerX, 0, centerY]} maxPolarAngle={Math.PI / 2 - 0.02} />
+        {/* Keyed on mode so leaving "에이전트 시점" remounts the camera and
+            re-applies `position` fresh - drei's PerspectiveCamera only sets
+            `position` once on mount, so without this the camera would stay
+            wherever AgentPovCamera last left it instead of snapping back to
+            the overview framing. */}
+        <PerspectiveCamera
+          key={disableOrbitControls ? "pov-camera" : "overview-camera"}
+          makeDefault
+          position={camPosition}
+          fov={fov}
+          near={0.1}
+          far={diagonal * 8}
+        />
+        {!disableOrbitControls && (
+          <OrbitControls target={[centerX, 0, centerY]} maxPolarAngle={Math.PI / 2 - 0.02} />
+        )}
         <ambientLight intensity={0.55} />
         <directionalLight position={[centerX + diagonal, diagonal, centerY + diagonal * 0.5]} intensity={1.1} />
         <mesh rotation={[-Math.PI / 2, 0, 0]} position={[centerX, -0.05, centerY]}>

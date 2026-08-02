@@ -69,3 +69,32 @@ export const PRESSURE_CONTACT_RANGE_PX = 0.15; // m (was 3 px)
 export const PRESSURE_DEATH_THRESHOLD = 3.5; // dimensionless compression ratio, unchanged
 export const PRESSURE_DEATH_SECONDS = 3;
 export const PRESSURE_RECOVERY_RATE = 3;
+
+// ---------------------------------------------------------------------------
+// Agent visual sizing. Deliberately exaggerated beyond real human
+// proportions and kept entirely separate from AGENT_RADIUS above, which
+// stays the tuned/tested SFM collision radius - changing that would ripple
+// into every already-validated physics constant. At a venue that can span
+// hundreds of meters, real 1.6-1.9 m humans read as invisible dots from the
+// default overview camera, so rendered agents are scaled up for legibility.
+// Height also varies per agent (child vs. adult) purely for visual variety;
+// it has no effect on speed, radius, or any other physics quantity.
+// ---------------------------------------------------------------------------
+
+/** Fraction of spawned agents rendered as children rather than adults. */
+export const AGENT_CHILD_FRACTION = 0.12;
+
+export const AGENT_RENDER_HEIGHT_ADULT_MIN = 2.2; // m, exaggerated for visibility
+export const AGENT_RENDER_HEIGHT_ADULT_MAX = 2.8;
+export const AGENT_RENDER_HEIGHT_CHILD_MIN = 1.2;
+export const AGENT_RENDER_HEIGHT_CHILD_MAX = 1.7;
+
+/** Rendered capsule radius at AGENT_RENDER_HEIGHT_ADULT_MAX; scaled down
+ * proportionally for shorter agents so bodies stay human-shaped rather than
+ * uniformly fat. Independent of (and larger than) the physics AGENT_RADIUS. */
+export const AGENT_RENDER_RADIUS_AT_MAX_HEIGHT = 0.55;
+
+/** Real-world eye height (not the exaggerated render height) used to
+ * position the first-person "에이전트 시점" camera. */
+export const AGENT_EYE_HEIGHT_ADULT = 1.65; // m
+export const AGENT_EYE_HEIGHT_CHILD = 1.1; // m

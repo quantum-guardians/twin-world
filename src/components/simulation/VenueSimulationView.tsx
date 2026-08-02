@@ -1,11 +1,14 @@
 import { useState } from "react";
 import type { Venue } from "../../domain/types";
 import { useVenueSimulation } from "../../simulation/useVenueSimulation";
+import { useAgentPovSelection } from "../../simulation/useAgentPovSelection";
 import { VenueScene } from "../../three/VenueScene";
 import { Agents } from "../../three/Agents";
 import { DensityHeatmap } from "../../three/DensityHeatmap";
+import { AgentPovCamera } from "../../three/AgentPovCamera";
 import { SimulationControls } from "./SimulationControls";
 import { ScenarioInput } from "./ScenarioInput";
+import { PovToolbar } from "./PovToolbar";
 import { DEFAULT_AGENT_COUNT } from "../../domain/simPresets";
 
 export interface VenueSimulationViewProps {
@@ -20,6 +23,7 @@ export function VenueSimulationView({ venue }: VenueSimulationViewProps) {
   const [seed] = useState(1);
 
   const { simulation, controls } = useVenueSimulation(venue, { population, seed });
+  const pov = useAgentPovSelection(simulation);
 
   return (
     <div className="sim-view">
@@ -37,9 +41,11 @@ export function VenueSimulationView({ venue }: VenueSimulationViewProps) {
         bottleneckCount={simulation.bottleneckCorridorIds.size}
         elapsedSeconds={simulation.elapsedSeconds}
       />
-      <VenueScene venue={venue}>
+      <PovToolbar pov={pov} />
+      <VenueScene venue={venue} disableOrbitControls={!!pov.agentId} fov={pov.agentId ? 75 : 50}>
         <DensityHeatmap simulation={simulation} />
         <Agents simulation={simulation} capacity={population} />
+        {pov.agentId && <AgentPovCamera simulation={simulation} agentId={pov.agentId} />}
       </VenueScene>
     </div>
   );

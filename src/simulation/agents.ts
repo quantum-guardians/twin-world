@@ -4,8 +4,13 @@ import { addAgent, type DesiredMotion, type SfmWorld } from "./socialForce";
 import type { NodeKind, Venue, VenueNode } from "../domain/types";
 import { edgeLength } from "../domain/venueGraph";
 import {
+  AGENT_CHILD_FRACTION,
   AGENT_LANE_OFFSET,
   AGENT_MAX_SPEED,
+  AGENT_RENDER_HEIGHT_ADULT_MAX,
+  AGENT_RENDER_HEIGHT_ADULT_MIN,
+  AGENT_RENDER_HEIGHT_CHILD_MAX,
+  AGENT_RENDER_HEIGHT_CHILD_MIN,
   AGENT_SPEED_VARIANCE_MAX,
   AGENT_SPEED_VARIANCE_MIN,
   ARRIVAL_RADIUS,
@@ -15,6 +20,8 @@ import {
   STUCK_RAMP_TICKS,
   STUCK_SOCIAL_FORCE_MIN,
 } from "../domain/simPresets";
+
+export type AgentAgeGroup = "child" | "adult";
 
 /**
  * Route-finding and per-tick steering, ported from simulation_react's
@@ -179,6 +186,11 @@ export interface AgentRuntimeState {
    * "arrived", set by VenueSimulation.tick (not here - computeDesiredDirections
    * has no notion of wall-clock sim time). Used for the 95%-arrival metric. */
   arrivedAtSeconds?: number;
+  /** Visual-only demographic, fixed at spawn. Never affects speed, physics
+   * radius, or pathing - see domain/simPresets.ts's render-sizing section. */
+  ageGroup: AgentAgeGroup;
+  /** Rendered (exaggerated) capsule height in meters for this agent. */
+  renderHeightM: number;
 }
 
 export interface SpawnAgentDeps {
@@ -236,6 +248,12 @@ export function spawnAgent(id: string, deps: SpawnAgentDeps): AgentRuntimeState 
 
   const speedFactor = AGENT_SPEED_VARIANCE_MIN + rng() * (AGENT_SPEED_VARIANCE_MAX - AGENT_SPEED_VARIANCE_MIN);
 
+  const ageGroup: AgentAgeGroup = rng() < AGENT_CHILD_FRACTION ? "child" : "adult";
+  const renderHeightM =
+    ageGroup === "child"
+      ? AGENT_RENDER_HEIGHT_CHILD_MIN + rng() * (AGENT_RENDER_HEIGHT_CHILD_MAX - AGENT_RENDER_HEIGHT_CHILD_MIN)
+      : AGENT_RENDER_HEIGHT_ADULT_MIN + rng() * (AGENT_RENDER_HEIGHT_ADULT_MAX - AGENT_RENDER_HEIGHT_ADULT_MIN);
+
   return {
     id,
     waypoints,
@@ -244,6 +262,8 @@ export function spawnAgent(id: string, deps: SpawnAgentDeps): AgentRuntimeState 
     targetNodeId: target,
     state: waypoints.length > 1 ? "moving" : "arrived",
     speedFactor,
+    ageGroup,
+    renderHeightM,
   };
 }
 
