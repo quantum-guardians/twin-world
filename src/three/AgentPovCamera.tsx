@@ -1,8 +1,9 @@
-import { useEffect, useRef } from "react";
+import { useRef } from "react";
 import { useFrame, useThree } from "@react-three/fiber";
 import * as THREE from "three";
 import type { VenueSimulation } from "../simulation/engine";
 import { AGENT_EYE_HEIGHT_RATIO } from "../domain/simPresets";
+import { useDragLook } from "./useDragLook";
 
 export interface AgentPovCameraProps {
   simulation: VenueSimulation;
@@ -10,8 +11,6 @@ export interface AgentPovCameraProps {
 }
 
 const UP = new THREE.Vector3(0, 1, 0);
-const LOOK_SENSITIVITY = 0.0035; // radians per pixel of drag
-const MAX_PITCH = Math.PI / 2 - 0.05;
 
 /**
  * "에이전트 시점" mode: pins the scene's active camera to one agent's eye
@@ -28,73 +27,15 @@ const MAX_PITCH = Math.PI / 2 - 0.05;
  * would this person see" answer. It's lerped rather than snapped because
  * raw per-tick velocity direction is jittery (agent-agent repulsion
  * changes it substantially tick to tick), which would otherwise read as a
- * shaky camera instead of a walking person.
- *
- * On top of that base direction, click-and-drag free-look (yaw/pitch
- * offsets from pointer movement) lets the user actually look around the
- * crowd instead of only ever staring straight ahead - position still
- * follows the agent, only the view direction responds to the drag.
+ * shaky camera instead of a walking person. Click-and-drag free-look
+ * (useDragLook) layers a yaw/pitch offset on top of that base direction.
  */
 export function AgentPovCamera({ simulation, agentId }: AgentPovCameraProps) {
-  const { camera, gl } = useThree();
+  const { camera } = useThree();
   const baseDir = useRef(new THREE.Vector3(0, 0, -1));
-  const userYaw = useRef(0);
-  const userPitch = useRef(0);
+  const { yaw, pitch } = useDragLook(agentId);
   const lookAtScratch = useRef(new THREE.Vector3());
   const rightAxisScratch = useRef(new THREE.Vector3());
-
-  // Reset free-look when switching to a different agent, so each new POV
-  // starts facing forward rather than wherever the previous one left off.
-  useEffect(() => {
-    userYaw.current = 0;
-    userPitch.current = 0;
-  }, [agentId]);
-
-  useEffect(() => {
-    const el = gl.domElement;
-    let dragging = false;
-    let lastX = 0;
-    let lastY = 0;
-
-    const onPointerDown = (e: PointerEvent) => {
-      dragging = true;
-      lastX = e.clientX;
-      lastY = e.clientY;
-      el.setPointerCapture(e.pointerId);
-    };
-    const onPointerMove = (e: PointerEvent) => {
-      if (!dragging) return;
-      const dx = e.clientX - lastX;
-      const dy = e.clientY - lastY;
-      lastX = e.clientX;
-      lastY = e.clientY;
-      userYaw.current -= dx * LOOK_SENSITIVITY;
-      userPitch.current = THREE.MathUtils.clamp(userPitch.current - dy * LOOK_SENSITIVITY, -MAX_PITCH, MAX_PITCH);
-    };
-    const onPointerUp = (e: PointerEvent) => {
-      dragging = false;
-      try {
-        el.releasePointerCapture(e.pointerId);
-      } catch {
-        // Capture may already be gone (e.g. pointer left the element) - fine to ignore.
-      }
-    };
-
-    el.addEventListener("pointerdown", onPointerDown);
-    el.addEventListener("pointermove", onPointerMove);
-    el.addEventListener("pointerup", onPointerUp);
-    el.addEventListener("pointerleave", onPointerUp);
-    const previousTouchAction = el.style.touchAction;
-    el.style.touchAction = "none";
-
-    return () => {
-      el.removeEventListener("pointerdown", onPointerDown);
-      el.removeEventListener("pointermove", onPointerMove);
-      el.removeEventListener("pointerup", onPointerUp);
-      el.removeEventListener("pointerleave", onPointerUp);
-      el.style.touchAction = previousTouchAction;
-    };
-  }, [gl]);
 
   useFrame(() => {
     const body = simulation.world.agents.get(agentId);
@@ -114,10 +55,10 @@ export function AgentPovCamera({ simulation, agentId }: AgentPovCameraProps) {
     // Layer free-look on top of the walking-direction base: yaw around
     // world up, then pitch around the resulting horizontal "right" axis so
     // looking up/down doesn't also roll the view.
-    const viewDir = baseDir.current.clone().applyAxisAngle(UP, userYaw.current);
-    if (userPitch.current !== 0) {
+    const viewDir = baseDir.current.clone().applyAxisAngle(UP, yaw.current);
+    if (pitch.current !== 0) {
       rightAxisScratch.current.crossVectors(UP, viewDir).normalize();
-      viewDir.applyAxisAngle(rightAxisScratch.current, userPitch.current);
+      viewDir.applyAxisAngle(rightAxisScratch.current, pitch.current);
     }
 
     lookAtScratch.current.copy(camera.position).add(viewDir);
