@@ -35,6 +35,11 @@ export interface VenueGraphEditorProps {
   venue: Venue;
   onChange: (venue: Venue) => void;
   onExport: () => void;
+  /** Fires once an MR2S optimization round trip succeeds, with a snapshot
+   * of the venue right before it (same nodes/edges, still whatever
+   * directions the user had set) and the resulting optimized venue - for
+   * the baseline-vs-optimized comparison view (plan FR-09). */
+  onOptimized?: (baseline: Venue, optimized: Venue) => void;
 }
 
 function nextEdgeId(edges: VenueFlowEdge[]): string {
@@ -43,7 +48,7 @@ function nextEdgeId(edges: VenueFlowEdge[]): string {
   return `e${candidate}`;
 }
 
-function GraphCanvas({ venue, onChange, onExport }: VenueGraphEditorProps) {
+function GraphCanvas({ venue, onChange, onExport, onOptimized }: VenueGraphEditorProps) {
   const { screenToFlowPosition } = useReactFlow();
   // xyflow owns this state so it can attach measured dimensions to each
   // node; rebuilding the array from `venue` every render (as an earlier
@@ -154,12 +159,13 @@ function GraphCanvas({ venue, onChange, onExport }: VenueGraphEditorProps) {
       if (isDisconnectedScore(response.optimized_graph_score)) {
         setMr2sMessage("최적화 결과가 강연결이 아닙니다 - 일부 구간이 서로 도달 불가능할 수 있습니다.");
       }
+      onOptimized?.(currentVenue, optimizedVenue);
     } catch (err) {
       setMr2sMessage(err instanceof Error ? err.message : String(err));
     } finally {
       setMr2sLoading(false);
     }
-  }, [venue, flowNodes, flowEdges]);
+  }, [venue, flowNodes, flowEdges, onOptimized]);
 
   const selectedNode = flowNodes.find((n) => n.id === selectedNodeId) ?? null;
   const selectedEdge = flowEdges.find((e) => e.id === selectedEdgeId) ?? null;

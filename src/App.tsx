@@ -4,8 +4,14 @@ import { createBusanFestivalStreetPreset } from "./domain/busanPreset";
 import { VenuePicker } from "./components/graph/VenuePicker";
 import { VenueGraphEditor } from "./components/graph/VenueGraphEditor";
 import { VenueSimulationView } from "./components/simulation/VenueSimulationView";
+import { ComparisonView } from "./components/comparison/ComparisonView";
 
-type ViewMode = "edit" | "3d";
+type ViewMode = "edit" | "3d" | "compare";
+
+interface Comparison {
+  baseline: Venue;
+  optimized: Venue;
+}
 
 function emptyVenue(): Venue {
   return {
@@ -32,6 +38,7 @@ function downloadJson(venue: Venue) {
 function App() {
   const [venue, setVenue] = useState<Venue | null>(null);
   const [view, setView] = useState<ViewMode>("edit");
+  const [comparison, setComparison] = useState<Comparison | null>(null);
 
   return (
     <div className="app-shell">
@@ -56,6 +63,15 @@ function App() {
             >
               3D 시뮬레이션
             </button>
+            <button
+              type="button"
+              className={view === "compare" ? "toggle-button active" : "toggle-button"}
+              onClick={() => setView("compare")}
+              disabled={!comparison}
+              title={comparison ? undefined : "그래프 편집에서 MR2S 최적화를 먼저 실행하세요"}
+            >
+              결과 비교
+            </button>
           </nav>
         )}
       </header>
@@ -67,9 +83,17 @@ function App() {
           />
         )}
         {venue && view === "edit" && (
-          <VenueGraphEditor venue={venue} onChange={setVenue} onExport={() => downloadJson(venue)} />
+          <VenueGraphEditor
+            venue={venue}
+            onChange={setVenue}
+            onExport={() => downloadJson(venue)}
+            onOptimized={(baseline, optimized) => setComparison({ baseline, optimized })}
+          />
         )}
         {venue && view === "3d" && <VenueSimulationView venue={venue} />}
+        {view === "compare" && comparison && (
+          <ComparisonView baselineVenue={comparison.baseline} optimizedVenue={comparison.optimized} />
+        )}
       </main>
     </div>
   );

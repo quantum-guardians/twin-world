@@ -96,6 +96,37 @@ body {
   margin-left: auto;
 }
 
+.compare-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 1.25rem;
+  padding: 0.6rem 1rem;
+  border-bottom: 1px solid #2a2d33;
+  flex-wrap: wrap;
+}
+
+.compare-tabs {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.comparison-table {
+  border-collapse: collapse;
+  font-size: 0.8rem;
+}
+
+.comparison-table th,
+.comparison-table td {
+  padding: 0.2rem 0.6rem;
+  text-align: left;
+  color: #e6e6e6;
+}
+
+.comparison-table th {
+  color: #9aa0aa;
+  font-weight: 500;
+}
+
 .venue-scene canvas {
   display: block;
 }
