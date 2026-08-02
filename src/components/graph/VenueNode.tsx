@@ -1,19 +1,6 @@
 import { Handle, Position, type Node, type NodeProps } from "@xyflow/react";
 import type { NodeKind } from "../../domain/types";
-
-const KIND_COLOR: Record<NodeKind, string> = {
-  normal: "#5b6270",
-  entrance: "#3fa76b",
-  exit: "#c95b5b",
-  destination: "#c9a13f",
-};
-
-const KIND_LABEL: Record<NodeKind, string> = {
-  normal: "일반",
-  entrance: "출입구",
-  exit: "출구",
-  destination: "목적지",
-};
+import { KIND_COLOR, KIND_LABEL } from "../../domain/nodeColors";
 
 export interface VenueNodeData {
   kind: NodeKind;
