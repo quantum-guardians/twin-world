@@ -1,0 +1,8 @@
+{
+  "rewrites": [
+    {
+      "source": "/mr2s-api/(.*)",
+      "destination": "https://quantum.yunseong.dev/$1"
+    }
+  ]
+}
