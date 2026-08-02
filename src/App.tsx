@@ -3,7 +3,7 @@ import type { Venue } from "./domain/types";
 import { createBusanFestivalStreetPreset } from "./domain/busanPreset";
 import { VenuePicker } from "./components/graph/VenuePicker";
 import { VenueGraphEditor } from "./components/graph/VenueGraphEditor";
-import { VenueScene } from "./three/VenueScene";
+import { VenueSimulationView } from "./components/simulation/VenueSimulationView";
 
 type ViewMode = "edit" | "3d";
 
@@ -54,7 +54,7 @@ function App() {
               className={view === "3d" ? "toggle-button active" : "toggle-button"}
               onClick={() => setView("3d")}
             >
-              3D 미리보기
+              3D 시뮬레이션
             </button>
           </nav>
         )}
@@ -69,7 +69,7 @@ function App() {
         {venue && view === "edit" && (
           <VenueGraphEditor venue={venue} onChange={setVenue} onExport={() => downloadJson(venue)} />
         )}
-        {venue && view === "3d" && <VenueScene venue={venue} />}
+        {venue && view === "3d" && <VenueSimulationView venue={venue} />}
       </main>
     </div>
   );

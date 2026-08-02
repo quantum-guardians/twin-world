@@ -138,3 +138,38 @@ export function isPointInWalkableArea(
   }
   return false;
 }
+
+/** A wall as a bare line segment, for the social-force wall repulsion. */
+export interface WallSegment {
+  a: Point;
+  b: Point;
+}
+
+/**
+ * Flattens the corridor floor plan into two side-wall segments per
+ * corridor (offset +-width/2 along the perpendicular). Ported from
+ * simulation_react's corridors.ts, but deliberately omits that file's hub
+ * rim wall tessellation: its own comment in socialForce.ts explains hub
+ * rim chords create collision wedges that can pin a pressured agent, and
+ * the hard walkable-area containment pass (enforceContainment) already
+ * stops agents from escaping through a hub disk, so runtime physics only
+ * ever needs the corridor side walls.
+ */
+export function buildWallSegments(corridors: Corridor[]): WallSegment[] {
+  const segments: WallSegment[] = [];
+
+  for (const corridor of corridors) {
+    if (corridor.length <= 0) continue;
+    const halfWidth = corridor.width / 2;
+    const perpX = -Math.sin(corridor.angle);
+    const perpY = Math.cos(corridor.angle);
+    for (const side of [1, -1]) {
+      segments.push({
+        a: { x: corridor.a.x + perpX * halfWidth * side, y: corridor.a.y + perpY * halfWidth * side },
+        b: { x: corridor.b.x + perpX * halfWidth * side, y: corridor.b.y + perpY * halfWidth * side },
+      });
+    }
+  }
+
+  return segments;
+}

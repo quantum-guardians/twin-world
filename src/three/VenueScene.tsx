@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useMemo, type ReactNode } from "react";
 import { Canvas } from "@react-three/fiber";
 import { OrbitControls, PerspectiveCamera } from "@react-three/drei";
 import type { Venue } from "../domain/types";
@@ -29,9 +29,10 @@ function useVenueGeometry(venue: Venue) {
 
 export interface VenueSceneProps {
   venue: Venue;
+  children?: ReactNode;
 }
 
-export function VenueScene({ venue }: VenueSceneProps) {
+export function VenueScene({ venue, children }: VenueSceneProps) {
   const { corridors, hubs, buildings, centerX, centerY, diagonal } = useVenueGeometry(venue);
 
   const camDistance = diagonal * 0.9;
@@ -55,6 +56,7 @@ export function VenueScene({ venue }: VenueSceneProps) {
         <StreetFloor corridors={corridors} hubs={hubs} />
         <Buildings buildings={buildings} />
         <NodeMarkers nodes={venue.nodes} />
+        {children}
       </Canvas>
     </div>
   );
