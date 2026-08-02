@@ -21,6 +21,7 @@ export function PovToolbar({ pov }: PovToolbarProps) {
           <button type="button" className="toggle-button active" onClick={pov.stop}>
             탑뷰로 복귀
           </button>
+          <span className="pov-toolbar-hint">화면을 드래그하면 둘러볼 수 있습니다</span>
         </>
       )}
     </div>

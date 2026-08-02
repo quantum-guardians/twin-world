@@ -84,17 +84,25 @@ export const PRESSURE_RECOVERY_RATE = 3;
 /** Fraction of spawned agents rendered as children rather than adults. */
 export const AGENT_CHILD_FRACTION = 0.12;
 
-export const AGENT_RENDER_HEIGHT_ADULT_MIN = 2.2; // m, exaggerated for visibility
-export const AGENT_RENDER_HEIGHT_ADULT_MAX = 2.8;
-export const AGENT_RENDER_HEIGHT_CHILD_MIN = 1.2;
-export const AGENT_RENDER_HEIGHT_CHILD_MAX = 1.7;
+// First pass (2.2-2.8 m adults) was still unreadable at the default
+// overview distance covering a venue that can span hundreds of meters -
+// bumped roughly 3x so agents show up as clearly visible colored figures
+// rather than a few near-invisible pixels.
+export const AGENT_RENDER_HEIGHT_ADULT_MIN = 6.0; // m, exaggerated for visibility
+export const AGENT_RENDER_HEIGHT_ADULT_MAX = 7.5;
+export const AGENT_RENDER_HEIGHT_CHILD_MIN = 3.2;
+export const AGENT_RENDER_HEIGHT_CHILD_MAX = 4.2;
 
 /** Rendered capsule radius at AGENT_RENDER_HEIGHT_ADULT_MAX; scaled down
  * proportionally for shorter agents so bodies stay human-shaped rather than
  * uniformly fat. Independent of (and larger than) the physics AGENT_RADIUS. */
-export const AGENT_RENDER_RADIUS_AT_MAX_HEIGHT = 0.55;
+export const AGENT_RENDER_RADIUS_AT_MAX_HEIGHT = 1.6;
 
-/** Real-world eye height (not the exaggerated render height) used to
- * position the first-person "에이전트 시점" camera. */
-export const AGENT_EYE_HEIGHT_ADULT = 1.65; // m
-export const AGENT_EYE_HEIGHT_CHILD = 1.1; // m
+/** Eye height as a fraction of an agent's own renderHeightM, used to
+ * position the first-person "에이전트 시점" camera. A fixed real-world
+ * value (~1.65 m) would put the viewer's eye far below neighboring
+ * agents' now-exaggerated ~6-7.5 m bodies, making everyone else look like
+ * giants; scaling with the same render exaggeration keeps the crowd
+ * proportioned normally from inside it. 0.93 matches the typical human
+ * eye-to-height ratio. */
+export const AGENT_EYE_HEIGHT_RATIO = 0.93;

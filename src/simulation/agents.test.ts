@@ -3,6 +3,12 @@ import type { Venue } from "../domain/types";
 import { buildAdjacency, pickSpawnTargetPair, shortestPath, spawnAgent } from "./agents";
 import { createSfmWorld } from "./socialForce";
 import { mulberry32 } from "../domain/rng";
+import {
+  AGENT_RENDER_HEIGHT_ADULT_MAX,
+  AGENT_RENDER_HEIGHT_ADULT_MIN,
+  AGENT_RENDER_HEIGHT_CHILD_MAX,
+  AGENT_RENDER_HEIGHT_CHILD_MIN,
+} from "../domain/simPresets";
 
 function lineVenue(): Venue {
   return {
@@ -110,8 +116,8 @@ describe("spawnAgent", () => {
     // produces a child.
     const agent = spawnAgent("a1", { world, venue, adjacency, rng: () => 0.05 });
     expect(agent!.ageGroup).toBe("child");
-    expect(agent!.renderHeightM).toBeGreaterThanOrEqual(1.2);
-    expect(agent!.renderHeightM).toBeLessThanOrEqual(1.7);
+    expect(agent!.renderHeightM).toBeGreaterThanOrEqual(AGENT_RENDER_HEIGHT_CHILD_MIN);
+    expect(agent!.renderHeightM).toBeLessThanOrEqual(AGENT_RENDER_HEIGHT_CHILD_MAX);
   });
 
   it("assigns an adult age group and an adult-range render height for a high draw", () => {
@@ -120,7 +126,7 @@ describe("spawnAgent", () => {
     const adjacency = buildAdjacency(venue);
     const agent = spawnAgent("a1", { world, venue, adjacency, rng: () => 0.9 });
     expect(agent!.ageGroup).toBe("adult");
-    expect(agent!.renderHeightM).toBeGreaterThanOrEqual(2.2);
-    expect(agent!.renderHeightM).toBeLessThanOrEqual(2.8);
+    expect(agent!.renderHeightM).toBeGreaterThanOrEqual(AGENT_RENDER_HEIGHT_ADULT_MIN);
+    expect(agent!.renderHeightM).toBeLessThanOrEqual(AGENT_RENDER_HEIGHT_ADULT_MAX);
   });
 });

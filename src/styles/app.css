@@ -92,6 +92,11 @@ body {
   font-size: 0.82rem;
 }
 
+.pov-toolbar-hint {
+  color: #7d8695;
+  font-size: 0.8rem;
+}
+
 .sim-field input,
 .sim-field select {
   background: #23262d;
