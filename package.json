@@ -1,0 +1,33 @@
+{
+  "name": "twin-world",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc -b && vite build",
+    "lint": "oxlint",
+    "preview": "vite preview",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@react-three/drei": "^10.7.7",
+    "@react-three/fiber": "^9.7.0",
+    "@xyflow/react": "^12.10.1",
+    "react": "^19.2.7",
+    "react-dom": "^19.2.7",
+    "three": "^0.180.0"
+  },
+  "devDependencies": {
+    "@types/node": "^24.13.2",
+    "@types/react": "^19.2.17",
+    "@types/react-dom": "^19.2.3",
+    "@types/three": "^0.180.0",
+    "@vitejs/plugin-react": "^4.7.0",
+    "jsdom": "^27.0.1",
+    "oxlint": "^1.71.0",
+    "typescript": "~5.9.0",
+    "vite": "^7.3.6",
+    "vitest": "^3.2.4"
+  }
+}

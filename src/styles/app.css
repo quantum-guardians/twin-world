@@ -1,0 +1,394 @@
+:root {
+  color-scheme: dark;
+  font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: #14161a;
+  color: #e6e6e6;
+}
+
+.app-shell {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.app-header {
+  padding: 1rem 1.5rem;
+  border-bottom: 1px solid #2a2d33;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.view-switch {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.app-header h1 {
+  margin: 0;
+  font-size: 1.25rem;
+}
+
+.app-header p {
+  margin: 0.25rem 0 0;
+  color: #9aa0aa;
+  font-size: 0.9rem;
+}
+
+.app-main {
+  flex: 1;
+  display: flex;
+  min-height: 0;
+}
+
+.venue-scene {
+  flex: 1;
+  min-width: 0;
+}
+
+.sim-view {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+}
+
+.sim-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 0.9rem;
+  padding: 0.6rem 1rem;
+  border-bottom: 1px solid #2a2d33;
+  flex-wrap: wrap;
+}
+
+.sim-field {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.8rem;
+  color: #9aa0aa;
+}
+
+.sim-field input,
+.sim-field select {
+  background: #23262d;
+  border: 1px solid #33373f;
+  color: #e6e6e6;
+  border-radius: 6px;
+  padding: 0.3rem 0.45rem;
+  font-size: 0.85rem;
+  width: 4.5rem;
+}
+
+.sim-status {
+  color: #9aa0aa;
+  font-size: 0.8rem;
+  margin-left: auto;
+}
+
+.compare-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 1.25rem;
+  padding: 0.6rem 1rem;
+  border-bottom: 1px solid #2a2d33;
+  flex-wrap: wrap;
+}
+
+.compare-tabs {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.comparison-table {
+  border-collapse: collapse;
+  font-size: 0.8rem;
+}
+
+.comparison-table th,
+.comparison-table td {
+  padding: 0.2rem 0.6rem;
+  text-align: left;
+  color: #e6e6e6;
+}
+
+.comparison-table th {
+  color: #9aa0aa;
+  font-weight: 500;
+}
+
+.venue-scene canvas {
+  display: block;
+}
+
+/* Venue picker */
+
+.venue-picker {
+  margin: auto;
+  padding: 2rem;
+  text-align: center;
+}
+
+.venue-picker h2 {
+  margin: 0 0 1.5rem;
+}
+
+.venue-picker-options {
+  display: flex;
+  gap: 1rem;
+}
+
+.venue-picker-card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  width: 260px;
+  padding: 1.25rem;
+  background: #1c1f26;
+  border: 1px solid #2a2d33;
+  border-radius: 10px;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.venue-picker-card:hover {
+  border-color: #4a5162;
+}
+
+.venue-picker-card span {
+  color: #9aa0aa;
+  font-size: 0.82rem;
+}
+
+/* Graph editor */
+
+.graph-editor {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+}
+
+.graph-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.6rem 1rem;
+  border-bottom: 1px solid #2a2d33;
+}
+
+.graph-toolbar-hint {
+  color: #7d8695;
+  font-size: 0.8rem;
+}
+
+.graph-toolbar-error {
+  color: #e08a8a;
+  font-size: 0.8rem;
+}
+
+.toggle-button {
+  background: #23262d;
+  border: 1px solid #33373f;
+  color: #e6e6e6;
+  border-radius: 6px;
+  padding: 0.4rem 0.75rem;
+  cursor: pointer;
+  font-size: 0.85rem;
+}
+
+.toggle-button.active {
+  background: #3fa76b;
+  border-color: #3fa76b;
+  color: #0c140f;
+}
+
+.toggle-button:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.graph-canvas-row {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+}
+
+.graph-canvas {
+  flex: 1;
+  min-width: 0;
+}
+
+.graph-sidebar {
+  width: 260px;
+  border-left: 1px solid #2a2d33;
+  padding: 1rem;
+  overflow-y: auto;
+}
+
+/* xyflow node/canvas theming */
+
+.react-flow {
+  background: #14161a;
+}
+
+.venue-node {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.35rem 0.6rem;
+  border-radius: 999px;
+  border: 2px solid #5b6270;
+  background: #1c1f26;
+  color: #e6e6e6;
+  font-size: 0.78rem;
+  white-space: nowrap;
+}
+
+.venue-node-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+/* Small discrete connection points around the node perimeter (see
+   VenueNode.tsx for why these replaced a single full-cover handle). Kept
+   visible but subtle so users can find the exact drag-to-connect spot
+   without it competing with the node's own drag-to-move area. */
+.venue-node-handle-point {
+  width: 8px;
+  height: 8px;
+  background: #7d8695;
+  border: 1px solid #14161a;
+}
+
+.venue-node-handle-point:hover {
+  background: #e8b93f;
+}
+
+/* Inspector panel */
+
+.inspector-panel h3 {
+  margin: 0 0 0.75rem;
+  font-size: 0.95rem;
+}
+
+.inspector-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  margin-bottom: 0.75rem;
+  font-size: 0.8rem;
+  color: #9aa0aa;
+}
+
+.inspector-field input,
+.inspector-field select {
+  background: #23262d;
+  border: 1px solid #33373f;
+  color: #e6e6e6;
+  border-radius: 6px;
+  padding: 0.35rem 0.5rem;
+  font-size: 0.85rem;
+}
+
+.inspector-meta {
+  color: #7d8695;
+  font-size: 0.75rem;
+  margin: 0 0 0.75rem;
+}
+
+.inspector-empty p {
+  color: #7d8695;
+  font-size: 0.82rem;
+}
+
+.danger-button {
+  background: #3a2020;
+  border: 1px solid #5a2d2d;
+  color: #e08a8a;
+  border-radius: 6px;
+  padding: 0.4rem 0.75rem;
+  cursor: pointer;
+  font-size: 0.82rem;
+  width: 100%;
+}
+
+/* AI scenario input + report panel */
+
+.scenario-input {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+  padding: 0.6rem 1rem;
+  border-bottom: 1px solid #2a2d33;
+  flex-wrap: wrap;
+}
+
+.scenario-textarea {
+  flex: 1;
+  min-width: 260px;
+  background: #23262d;
+  border: 1px solid #33373f;
+  color: #e6e6e6;
+  border-radius: 6px;
+  padding: 0.4rem 0.6rem;
+  font-size: 0.85rem;
+  font-family: inherit;
+  resize: vertical;
+}
+
+.scenario-result {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+  font-size: 0.82rem;
+  color: #9aa0aa;
+}
+
+.scenario-warning {
+  color: #e0b25a;
+  margin: 0;
+}
+
+.report-panel {
+  padding: 0.75rem 1rem;
+  border-bottom: 1px solid #2a2d33;
+}
+
+.report-panel-actions {
+  display: flex;
+  gap: 0.6rem;
+}
+
+.report-body {
+  margin-top: 0.75rem;
+  font-size: 0.85rem;
+  max-height: 30vh;
+  overflow-y: auto;
+}
+
+.report-body h4 {
+  margin: 0.75rem 0 0.3rem;
+  color: #9aa0aa;
+  font-size: 0.82rem;
+}
+
+.report-body ul {
+  margin: 0;
+  padding-left: 1.1rem;
+}
