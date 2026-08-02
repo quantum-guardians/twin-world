@@ -28,6 +28,8 @@ import {
 import { venueNodeTypes } from "./VenueNode";
 import { NodeInspector } from "./NodeInspector";
 import { EdgeInspector } from "./EdgeInspector";
+import { applyMr2sResponse, buildMr2sRequest, buildVertexMapping, isDisconnectedScore } from "../../domain/mr2sAdapter";
+import { optimizeMr2s } from "../../api/mr2sClient";
 
 export interface VenueGraphEditorProps {
   venue: Venue;
@@ -55,6 +57,9 @@ function GraphCanvas({ venue, onChange, onExport }: VenueGraphEditorProps) {
   const [selectedEdgeId, setSelectedEdgeId] = useState<string | null>(null);
   const [addNodeMode, setAddNodeMode] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [mr2sLoading, setMr2sLoading] = useState(false);
+  const [mr2sMessage, setMr2sMessage] = useState<string | null>(null);
+  const [mr2sScores, setMr2sScores] = useState<{ optimized: number; bidirectional: number } | null>(null);
 
   useEffect(() => {
     onChange(deriveVenue(venue, flowNodes, flowEdges));
@@ -125,6 +130,37 @@ function GraphCanvas({ venue, onChange, onExport }: VenueGraphEditorProps) {
     [addNodeMode, screenToFlowPosition]
   );
 
+  const handleOptimize = useCallback(async () => {
+    setMr2sLoading(true);
+    setMr2sMessage(null);
+    setMr2sScores(null);
+    try {
+      const currentVenue = deriveVenue(venue, flowNodes, flowEdges);
+      if (currentVenue.edges.length === 0) {
+        throw new Error("최적화할 간선이 없습니다. 먼저 그래프를 그려주세요.");
+      }
+      const mapping = buildVertexMapping(currentVenue);
+      const request = buildMr2sRequest(currentVenue, mapping);
+      const response = await optimizeMr2s(request);
+      const optimizedVenue = applyMr2sResponse(currentVenue, response, mapping);
+
+      setFlowEdges((eds) =>
+        eds.map((e) => {
+          const match = optimizedVenue.edges.find((oe) => oe.id === e.id);
+          return match ? { ...e, data: { ...e.data!, direction: match.direction } } : e;
+        })
+      );
+      setMr2sScores({ optimized: response.optimized_graph_score, bidirectional: response.bidirectional_graph_score });
+      if (isDisconnectedScore(response.optimized_graph_score)) {
+        setMr2sMessage("최적화 결과가 강연결이 아닙니다 - 일부 구간이 서로 도달 불가능할 수 있습니다.");
+      }
+    } catch (err) {
+      setMr2sMessage(err instanceof Error ? err.message : String(err));
+    } finally {
+      setMr2sLoading(false);
+    }
+  }, [venue, flowNodes, flowEdges]);
+
   const selectedNode = flowNodes.find((n) => n.id === selectedNodeId) ?? null;
   const selectedEdge = flowEdges.find((e) => e.id === selectedEdgeId) ?? null;
   const selectedEdgeNodes = selectedEdge
@@ -155,7 +191,16 @@ function GraphCanvas({ venue, onChange, onExport }: VenueGraphEditorProps) {
         <button type="button" className="toggle-button" onClick={onExport}>
           JSON 내보내기
         </button>
+        <button type="button" className="toggle-button" onClick={handleOptimize} disabled={mr2sLoading}>
+          {mr2sLoading ? "MR2S 최적화 중..." : "MR2S 일방통행 최적화"}
+        </button>
+        {mr2sScores && (
+          <span className="graph-toolbar-hint">
+            APSP {mr2sScores.bidirectional.toFixed(0)} → {isDisconnectedScore(mr2sScores.optimized) ? "연결 불가" : mr2sScores.optimized.toFixed(0)}
+          </span>
+        )}
         {error && <span className="graph-toolbar-error">{error}</span>}
+        {mr2sMessage && <span className="graph-toolbar-error">{mr2sMessage}</span>}
       </div>
       <div className="graph-canvas-row">
         <div className="graph-canvas">

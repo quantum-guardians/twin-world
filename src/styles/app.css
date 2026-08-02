@@ -183,6 +183,11 @@ body {
   color: #0c140f;
 }
 
+.toggle-button:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
 .graph-canvas-row {
   display: flex;
   flex: 1;
