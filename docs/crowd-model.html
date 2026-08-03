@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Twin World 군중 모델 정리 — 비전 휴리스틱 + 접촉 물리</title>
+<style>
+  :root {
+    --ink: #1f2430; --sub: #5b6270; --line: #e3e6ec; --bg: #ffffff;
+    --panel: #f6f7fa; --accent: #e0532f; --good: #2e7d52; --bad: #b3402e;
+    --code-bg: #f0f2f6;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--ink);
+    font-family: "Pretendard", "Noto Sans KR", "Apple SD Gothic Neo", system-ui, sans-serif;
+    line-height: 1.7; font-size: 16px;
+  }
+  main { max-width: 880px; margin: 0 auto; padding: 48px 24px 96px; }
+  h1 { font-size: 30px; line-height: 1.3; margin: 0 0 8px; letter-spacing: -0.02em; }
+  .subtitle { color: var(--sub); margin: 0 0 40px; font-size: 16px; }
+  h2 { font-size: 21px; margin: 56px 0 16px; padding-top: 24px; border-top: 1px solid var(--line); letter-spacing: -0.01em; }
+  h2 .no { color: var(--accent); font-variant-numeric: tabular-nums; margin-right: 8px; }
+  h3 { font-size: 17px; margin: 28px 0 8px; }
+  p { margin: 0 0 14px; }
+  .lede { font-size: 17px; }
+  table { border-collapse: collapse; width: 100%; margin: 16px 0 24px; font-size: 14.5px; }
+  th, td { border: 1px solid var(--line); padding: 9px 12px; text-align: left; vertical-align: top; }
+  th { background: var(--panel); font-weight: 600; }
+  td.old { color: var(--bad); }
+  td.new { color: var(--good); }
+  .formula {
+    background: var(--panel); border: 1px solid var(--line); border-radius: 10px;
+    padding: 14px 18px; margin: 14px 0; font-family: "STIX Two Math", "Cambria Math", Georgia, serif;
+    font-size: 17px; overflow-x: auto; white-space: nowrap;
+  }
+  .formula .label { display:block; font-family: inherit; font-size: 13px; color: var(--sub); margin-bottom: 4px;
+    font-family: "Pretendard", "Noto Sans KR", system-ui, sans-serif; }
+  code { background: var(--code-bg); border-radius: 5px; padding: 1px 6px; font-size: 13.5px;
+    font-family: "JetBrains Mono", ui-monospace, Consolas, monospace; }
+  .callout { border-left: 4px solid var(--accent); background: var(--panel); border-radius: 0 10px 10px 0;
+    padding: 14px 18px; margin: 18px 0; }
+  .callout.green { border-left-color: var(--good); }
+  .callout p:last-child { margin-bottom: 0; }
+  ul, ol { margin: 0 0 14px; padding-left: 22px; }
+  li { margin-bottom: 6px; }
+  .refs li { font-size: 14.5px; color: var(--sub); }
+  .refs a { color: inherit; }
+  .kicker { display: inline-block; font-size: 12.5px; font-weight: 700; letter-spacing: 0.08em;
+    text-transform: uppercase; color: var(--accent); margin-bottom: 6px; }
+  .qa dt { font-weight: 600; margin-top: 16px; }
+  .qa dd { margin: 4px 0 0 0; color: var(--sub); }
+  sub, sup { font-size: 72%; }
+  @media (prefers-color-scheme: dark) {
+    :root { --ink: #e6e9ef; --sub: #9aa3b2; --line: #313747; --bg: #14161c;
+      --panel: #1c1f28; --code-bg: #232734; --accent: #ff7a52; --good: #5fbd89; --bad: #e07a63; }
+  }
+</style>
+</head>
+<body>
+<main>
+  <span class="kicker">Twin World · 시뮬레이션 모델 문서</span>
+  <h1>군중 모델 정리: 비전 휴리스틱 + 접촉 물리</h1>
+  <p class="subtitle">2026-08-03 · 이슈 #13 · 기존 Social Force Model(+보정)에서 Moussaïd 인지 휴리스틱 모델로 전면 교체</p>
+
+  <p class="lede">
+    Twin World의 에이전트는 이제 <strong>힘으로 밀려다니는 입자가 아니라, 눈으로 보고 판단하는 보행자</strong>다.
+    회피·감속·차선 형성은 각 에이전트의 시각적 예측에서 창발하고, 물리 힘은 몸이 실제로 닿았을 때만 작용한다.
+    이 문서는 무엇이 왜 바뀌었는지, 그리고 발표에서 어떻게 서술하면 좋은지를 정리한다.
+  </p>
+
+  <h2><span class="no">1</span>이전 모델과의 차이 요약</h2>
+  <table>
+    <tr><th style="width:22%">항목</th><th>이전 (Helbing SFM + 보정)</th><th>현재 (Moussaïd 비전 휴리스틱)</th></tr>
+    <tr>
+      <td>회피 원리</td>
+      <td class="old">거리 기반 지수 반발력 A·e<sup>(r−d)/B</sup> — 가까워진 <em>뒤에야</em> 밀려남</td>
+      <td class="new">충돌까지의 거리 f(α)를 <em>미리 예측</em>해 방향 선택 — 부딪히기 전에 비켜감</td>
+    </tr>
+    <tr>
+      <td>정체 처리</td>
+      <td class="old">minForwardSpeed 강제 전진, STUCK 부스트·랜덤 지터, 반발력 축소(socialScale)로 정체를 <em>인위적으로 제거</em></td>
+      <td class="new">보정 없음 — 정체·아치·stop-and-go가 물리적으로 발생. 압사 시뮬레이터가 측정해야 할 대상을 지우지 않음</td>
+    </tr>
+    <tr>
+      <td>차선(우측통행)</td>
+      <td class="old">경로를 기하학적으로 오프셋(rightLaneTarget) + 차선 이탈 클램프</td>
+      <td class="new">대칭 상황의 우측 선호(비용 2% 할인)만 두고 차선 형성은 창발에 맡김</td>
+    </tr>
+    <tr>
+      <td>속도 결정</td>
+      <td class="old">항상 희망속도로 밀어붙임 (상한 1.3×)</td>
+      <td class="new">v = min(v₀, 여유거리/τ) — 멈출 수 있는 만큼만 걷기</td>
+    </tr>
+    <tr>
+      <td>압사 판정</td>
+      <td class="old">근접(간격 &lt; 0.15m) 기반 — 얌전히 붙어 서 있어도 사망 누적 → 시작 직후 대량사망 아티팩트</td>
+      <td class="new">겹침 깊이(압착) 기반 — 어깨가 닿은 만원 상태는 무해, 실제로 짓눌릴 때만 위험</td>
+    </tr>
+    <tr>
+      <td>사망 발생 조건</td>
+      <td class="old">인원수만 많으면 아무 때나</td>
+      <td class="new">긴급도(러시/밀어붙임)가 있을 때 병목에서만 — 문헌과 일치</td>
+    </tr>
+    <tr>
+      <td>경로 복구</td>
+      <td class="old">없음 (강제 전진이 문제를 은폐)</td>
+      <td class="new">1초 주기 이탈·정지 감지 → 최근접 노드에서 Dijkstra 재탐색</td>
+    </tr>
+    <tr>
+      <td>성능</td>
+      <td class="old">전 에이전트 쌍 전수 비교 O(N²) ×4곳</td>
+      <td class="new">공간 해시 격자 — 3000명 기준 틱당 28ms → 10.4ms</td>
+    </tr>
+  </table>
+
+  <h2><span class="no">2</span>모델 구조: 3개 층</h2>
+
+  <h3>층 1 — 전역 경로 (그래프)</h3>
+  <p>
+    스폰 시 장소 그래프 위에서 <strong>Dijkstra 최단경로</strong>를 계산한다 (입구 → 목적지/출구).
+    MR2S 백엔드가 결정한 일방통행 방향이 그래프 간선의 방향성으로 반영되므로,
+    기준안과 최적화안의 차이는 결국 이 층의 경로 선택 차이로 나타난다.
+    군중에 밀려 경로에서 12m 이상 이탈하거나 15초간 제자리인 에이전트는
+    현재 위치 기준으로 경로를 재탐색한다 — 사람이 "길을 잘못 들었네" 하고 다시 찾는 행동.
+  </p>
+
+  <h3>층 2 — 국소 조향 (Moussaïd 비전 휴리스틱, PNAS 2011)</h3>
+  <p>매 100ms(사람의 조향 반응시간 수준)마다, 각 에이전트는:</p>
+  <ol>
+    <li>목표 방향 α₀(현재 웨이포인트 방향) 주위 ±75° 시야에 21개 후보 방향을 평가한다.</li>
+    <li>각 방향 α로 걸었을 때 <strong>충돌까지의 거리 f(α)</strong>를 계산한다 — 이웃 보행자는 현재 속도로 등속 외삽(마주 오는 사람은 더 일찍 만난다고 예측), 벽은 레이캐스트. 시야 한계 d<sub>max</sub> = 8m.</li>
+    <li>다음 비용을 최소화하는 방향을 고른다 (우회 거리와 막힘의 균형):</li>
+  </ol>
+  <div class="formula"><span class="label">방향 선택 (논문 Eq. 1)</span>
+    d(α) = √( d²<sub>max</sub> + f(α)² − 2·d<sub>max</sub>·f(α)·cos(α₀ − α) )
+  </div>
+  <div class="formula"><span class="label">속도 결정 — "부딪히기 전에 멈출 수 있는 만큼만" (논문 Eq. 2)</span>
+    v = min( v₀ , f(α*) / τ ) ,  τ = 0.5 s
+  </div>
+  <ul>
+    <li><strong>우측 선호</strong>: 정면 대칭 상황의 교착을 깨기 위해 오른쪽 후보의 비용에 2% 할인 — 우측통행 관습의 최소한의 반영.</li>
+    <li><strong>Yield(옆걸음)</strong>: 시야 전체가 접촉으로 막히면 ±150°로 재탐색해 빈 공간으로 저속 이동 — 논문이 몸 회전으로 다루는 행동의 근사.</li>
+  </ul>
+
+  <h3>층 3 — 접촉 물리 (Helbing–Farkas–Vicsek, Nature 2000)</h3>
+  <p>심리적 반발력은 없다. 몸이 실제로 겹쳤을 때만 두 힘이 작용한다:</p>
+  <div class="formula"><span class="label">압축 스프링 + 미끄럼 마찰 (겹침 깊이 g = r<sub>ij</sub> − d 일 때만)</span>
+    f = k·g·n̂ + κ·g·Δv<sup>t</sup>·t̂ ,  k = 700 s⁻² , κ = 600 (m·s)⁻¹
+  </div>
+  <p>
+    여기에 희망 운동으로의 완화 구동력 (v<sub>des</sub> − v)/τ 를 더해 semi-implicit Euler로 60Hz 적분한다.
+    벽도 동일한 접촉 법칙을 따른다. <strong>이 접촉 스프링에 실리는 하중이 곧 압사 압력 지표의 물리적 근원</strong>이며,
+    어떤 보정으로도 스케일되거나 우회되지 않는다.
+  </p>
+
+  <h2><span class="no">3</span>압력·사망 모델</h2>
+  <p>
+    이웃/벽과의 접촉마다 <strong>겹침 깊이 ÷ 15mm</strong>(상한 2.0)를 압축 단위로 합산한다.
+    합계가 임계값 <strong>2.5</strong>를 <strong>3초간 지속</strong>하면 사망 판정.
+    임계값은 측정으로 보정했다: 부산 프리셋 1500명 기준, 평상시 군중의 최대 압력은 ~1.6에서 멈추고
+    긴급도 100% 군중은 ~3.5에 도달한다. 2.5는 그 사이 — <em>평상시에는 도달 불가능하고,
+    실제 하중이 걸린 압착에서만 넘어서는 값</em>이다.
+  </p>
+
+  <h2><span class="no">4</span>긴급도(urgency) 파라미터</h2>
+  <p>Moussaïd 논문의 핵심 결론은 "재난은 정상 보행이 아니라 <em>서두름(rushing)</em>에서 발생한다"이다. 긴급도 ∈ [0,1]은 정확히 그 축을 노출한다:</p>
+  <table>
+    <tr><th>효과</th><th>평상시 (0)</th><th>최대 긴급 (1)</th></tr>
+    <tr><td>희망 속도</td><td>1.25 m/s</td><td>×1.8 → ~2.25 m/s</td></tr>
+    <tr><td>막혔을 때</td><td>완전히 멈춤 (v = f/τ → 0)</td><td>0.8 m/s로 계속 밀어붙임 → 접촉 스프링에 하중이 열 지어 전달 (force chain)</td></tr>
+    <tr><td>갇혔을 때</td><td>옆걸음으로 비켜남</td><td>옆걸음 생략, 전진 압박 유지</td></tr>
+  </table>
+  <p>공연 종료 직후의 일제 퇴장, 불꽃놀이 피날레, 막차 시간, 대피 상황 — 패닉이 아니어도 실존하는 "멈추지 않는 전진 압력"의 크기다.</p>
+
+  <h2><span class="no">5</span>발표에서 이렇게 서술하자</h2>
+
+  <div class="callout green">
+    <p><strong>핵심 문장:</strong> "저희 시뮬레이션에서는 평상시에 아무도 죽지 않습니다. <em>현실이 그렇기 때문입니다.</em>
+    사망은 저희가 예측하려는 조건 — 유입 압력이 구조의 한계를 넘는 순간 — 에서만 나타납니다."</p>
+  </div>
+
+  <h3>스토리라인 (권장 순서)</h3>
+  <ol>
+    <li><strong>문제 제기</strong>: 군중 사고는 '걷다가' 일어나지 않는다. 이태원·러브퍼레이드·힐스버러의 공통점은 높은 밀도가 아니라 <em>멈추지 않는 전진 압력</em>이었다. 뒤쪽 사람들은 앞의 위기를 볼 수 없어 각자 "조금씩 앞으로"를 계속했을 뿐이다.</li>
+    <li><strong>모델 선택의 근거</strong>: 그래서 우리는 고전 SFM이 아니라, 군중 재난 재현으로 검증된 Moussaïd–Helbing–Theraulaz(PNAS 2011) 인지 휴리스틱 모델을 구현했다. 보행자가 '보고 판단하는' 평상시와 '밀어붙이는' 비상시를 하나의 파라미터로 잇는다.</li>
+    <li><strong>Negative control 논리</strong>: 평상시 설정에서 10,000명을 넣어도 사망이 없다 — 이것은 한계가 아니라 <em>모델이 맞다는 검증</em>이다. "서 있기만 해도 죽는" 모델(우리의 이전 버전)은 어떤 구조 개선을 해도 죽으므로 비교 도구로서 무의미하다.</li>
+    <li><strong>비교 데모</strong>: 같은 인원·같은 긴급도에서 기준안(양방향)은 병목에 압력이 축적되어 사상자가 발생하고, MR2S 일방통행안은 버틴다. 이 차이가 <em>구조 개선의 안전 마진을 정량화한 값</em>이다.</li>
+    <li><strong>확장 비전</strong>: 안전 설계의 질문은 "몇 명이면 위험한가"가 아니라 "이 거리 구조는 어느 수준의 전진 압력까지 버티는가"다. Twin World는 그 실험 도구다.</li>
+  </ol>
+
+  <h3>예상 Q&A</h3>
+  <dl class="qa">
+    <dt>Q. 왜 잘 안 죽나요? 압사 시뮬레이션인데.</dt>
+    <dd>A. 현실에서도 평상 보행 군중은 압사하지 않습니다. 저희 이전 버전은 가까이 서 있기만 해도 죽는 판정이었는데, 그건 어떤 개입을 해도 죽기 때문에 오히려 아무것도 예측하지 못합니다. 지금 모델은 하중이 실제로 전달될 때만 죽고, 그래서 '어떤 구조가 버티는가'를 비교할 수 있습니다.</dd>
+    <dt>Q. 검증은 어떻게 했나요?</dt>
+    <dd>A. 세 겹입니다. ① 단위 테스트 103개(충돌 예측 수학, 벽 레이캐스트, 회피·감속·교착 해소), ② 헤드리스 대량 시뮬레이션(300~3000명, 도착률·데드락·NaN·결정론 검사), ③ 압력 스케일은 평상시/긴급 양 극단을 실측해 임계값을 그 사이에 보정.</dd>
+    <dt>Q. 실제 데이터와 비교했나요?</dt>
+    <dd>A. 파라미터(보행속도 1.25m/s, 반응시간 τ=0.5s, 접촉 강성)는 원 논문의 실측 보정값을 미터 단위로 재사용했고, 창발 현상(차선 형성, stop-and-go 파동, 병목 아치)이 문헌의 정성적 패턴과 일치함을 확인했습니다. 실제 CCTV 궤적과의 정량 비교는 향후 과제입니다.</dd>
+    <dt>Q. 왜 에이전트마다 다르게 움직이나요?</dt>
+    <dd>A. 개인별 희망속도 편차(±18%)와 어린이/성인 구성이 시드 고정 난수로 부여됩니다. 같은 시드면 결과가 100% 재현되어 기준안·최적화안 비교가 공정합니다.</dd>
+  </dl>
+
+  <h2><span class="no">6</span>참고문헌</h2>
+  <ul class="refs">
+    <li>Moussaïd, Helbing &amp; Theraulaz (2011), <em>How simple rules determine pedestrian behavior and crowd disasters</em>, PNAS 108(17) — <a href="https://www.pnas.org/doi/10.1073/pnas.1016507108">doi:10.1073/pnas.1016507108</a> (구현한 조향 모델)</li>
+    <li>Helbing, Farkas &amp; Vicsek (2000), <em>Simulating dynamical features of escape panic</em>, Nature 407 — <a href="https://arxiv.org/abs/cond-mat/0009448">arXiv:cond-mat/0009448</a> (접촉력·압사 물리)</li>
+    <li>Helbing &amp; Molnár (1995), <em>Social force model for pedestrian dynamics</em>, Phys. Rev. E 51 — <a href="https://arxiv.org/abs/cond-mat/9805244">arXiv:cond-mat/9805244</a> (이전 모델의 원형)</li>
+    <li>Helbing &amp; Mukerji (2012), <em>Crowd disasters as systemic failures: analysis of the Love Parade disaster</em>, EPJ Data Science 1:7 (패닉 없는 압사, 'crowd quake')</li>
+  </ul>
+</main>
+</body>
+</html>
