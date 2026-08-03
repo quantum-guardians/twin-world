@@ -17,7 +17,7 @@ import { AXIS_BY_KEY, BOOST_KEYS, MIN_ALTITUDE, flySpeed } from "./flyControls";
  */
 export function FreeCamera() {
   const { camera } = useThree();
-  const { yaw, pitch } = useDragLook();
+  const { yaw, pitch } = useDragLook(undefined, true);
   const keysDown = useRef(new Set<string>());
   const euler = useRef(new THREE.Euler(0, 0, 0, "YXZ"));
   const forward = useRef(new THREE.Vector3());
