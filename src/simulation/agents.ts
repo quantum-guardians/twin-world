@@ -167,6 +167,10 @@ export interface AgentRuntimeState {
    * invalidates the cache immediately. */
   cachedMotionWaypointIndex?: number;
   cachedMotion?: DesiredMotion;
+  /** Position at the previous 1 Hz stall check (rerouteStrayAgents). */
+  lastStallCheck?: Point;
+  /** Consecutive stall-check seconds with almost no displacement. */
+  stallSeconds?: number;
   /** Current normalized crowd-compression estimate. */
   pressure?: number;
   /** Consecutive-equivalent physics ticks spent above fatal pressure. */
@@ -464,6 +468,84 @@ export function computeDesiredDirections(
   }
 
   return desired;
+}
+
+/** Lateral distance from the current route segment beyond which an agent
+ * counts as having strayed onto the wrong street. Must exceed legitimate
+ * wander: half of the widest corridor plus a junction-hub crossing
+ * (~8 m on the Busan preset); genuinely wrong streets are 100 m+ away. */
+const OFF_ROUTE_DISTANCE_M = 12;
+
+/** Seconds of near-zero displacement before a stalled agent re-plans.
+ * Corner-pinned agents (on-route but wedged against a wall or contact
+ * cluster) never trip the off-route check; a reroute retargets them at
+ * the nearest node center, which is directly visible and unpins them.
+ * Agents merely queueing re-derive the same route - a harmless no-op. */
+const STALL_REROUTE_SECONDS = 15;
+const STALL_DISPLACEMENT_M = 0.3;
+
+/**
+ * Re-plans agents that got pushed off their route. Vision steering is
+ * local: once an agent ends up in a street its route never visits, its
+ * waypoint sits behind a wall and no amount of local avoidance recovers -
+ * it creeps along the wall forever. Real pedestrians notice they took a
+ * wrong turn and re-orient, so strays get a fresh Dijkstra route to their
+ * original target from the nearest reachable node. Call at ~1 Hz, not per
+ * tick - detection is a distance check per moving agent.
+ */
+export function rerouteStrayAgents(
+  agents: AgentRuntimeState[],
+  world: SfmWorld,
+  venue: Venue,
+  adjacency: Map<string, AdjacencyEntry[]>
+): number {
+  const nodePositions = new Map(venue.nodes.map((n) => [n.id, { x: n.x, y: n.y }]));
+  let rerouted = 0;
+
+  for (const agent of agents) {
+    if (agent.state !== "moving") continue;
+    const body = world.agents.get(agent.id);
+    const waypoint = agent.waypoints[agent.waypointIndex];
+    if (!body || !waypoint) continue;
+
+    const px = body.position.x;
+    const py = body.position.y;
+
+    const moved = agent.lastStallCheck ? Math.hypot(px - agent.lastStallCheck.x, py - agent.lastStallCheck.y) : Infinity;
+    agent.stallSeconds = moved < STALL_DISPLACEMENT_M ? (agent.stallSeconds ?? 0) + 1 : 0;
+    agent.lastStallCheck = { x: px, y: py };
+
+    const previous = agent.waypoints[agent.waypointIndex - 1];
+    const offRouteSq = previous
+      ? segmentDistanceSq(px, py, previous, waypoint)
+      : (px - waypoint.x) ** 2 + (py - waypoint.y) ** 2;
+    const offRoute = offRouteSq > OFF_ROUTE_DISTANCE_M * OFF_ROUTE_DISTANCE_M;
+    const stalled = (agent.stallSeconds ?? 0) >= STALL_REROUTE_SECONDS;
+    if (!offRoute && !stalled) continue;
+
+    // Try the closest nodes first; skip ones that cannot reach the target
+    // (e.g. the stray ended up on the wrong side of a one-way street).
+    const candidates = venue.nodes
+      .map((node) => ({ id: node.id, distSq: (node.x - px) ** 2 + (node.y - py) ** 2 }))
+      .sort((a, b) => a.distSq - b.distSq)
+      .slice(0, 5);
+    for (const candidate of candidates) {
+      const path = shortestPath(adjacency, candidate.id, agent.targetNodeId);
+      if (!path) continue;
+      const waypoints = path.map((id) => nodePositions.get(id)).filter((p): p is Point => p !== undefined);
+      if (waypoints.length === 0) continue;
+      agent.waypoints = waypoints;
+      agent.waypointIndex = 0;
+      agent.cachedMotion = undefined;
+      agent.cachedMotionWaypointIndex = undefined;
+      agent.visionCooldownTicks = 0;
+      agent.stallSeconds = 0;
+      rerouted++;
+      break;
+    }
+  }
+
+  return rerouted;
 }
 
 const CONTAINMENT_TOLERANCE = 0.1;

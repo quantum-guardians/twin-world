@@ -6,6 +6,7 @@ import {
   buildAdjacency,
   computeDesiredDirections,
   enforceContainment,
+  rerouteStrayAgents,
   spawnAgent,
   type AdjacencyEntry,
   type AgentRuntimeState,
@@ -123,6 +124,10 @@ export class VenueSimulation {
 
     this.elapsedSeconds += dtMs / 1000;
     this.tickCount += 1;
+
+    if (this.tickCount % 60 === 0) {
+      rerouteStrayAgents(this.agents, this.world, this.venue, this.adjacency);
+    }
 
     for (const agent of this.agents) {
       if (agent.state === "arrived" && wasMoving.has(agent.id) && agent.arrivedAtSeconds === undefined) {
