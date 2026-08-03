@@ -4,12 +4,10 @@ import { buildAdjacency, pickSpawnTargetPair, shortestPath, spawnAgent } from ".
 import { createSfmWorld } from "./socialForce";
 import { mulberry32 } from "../domain/rng";
 import {
+  AGENT_BODY_RADIUS_M,
   AGENT_HAIR_LENGTH_MAX_FRACTION,
   AGENT_HAIR_LENGTH_MIN_FRACTION,
-  AGENT_RENDER_HEIGHT_ADULT_MAX,
-  AGENT_RENDER_HEIGHT_ADULT_MIN,
-  AGENT_RENDER_HEIGHT_CHILD_MAX,
-  AGENT_RENDER_HEIGHT_CHILD_MIN,
+  AGENT_RENDER_HEIGHT_M,
 } from "../domain/simPresets";
 
 function lineVenue(): Venue {
@@ -109,35 +107,21 @@ describe("spawnAgent", () => {
     expect(spawnAgent("a1", { world, venue, adjacency, rng: () => 0.1 })).toBeNull();
   });
 
-  it("assigns a child age group and a child-range render height for a low draw", () => {
-    const venue = lineVenue();
-    const world = createSfmWorld();
-    const adjacency = buildAdjacency(venue);
-    // A constant low rng() satisfies every draw in spawnAgent, including the
-    // age-group check (< AGENT_CHILD_FRACTION = 0.12), so this deterministically
-    // produces a child.
-    const agent = spawnAgent("a1", { world, venue, adjacency, rng: () => 0.05 });
-    expect(agent!.ageGroup).toBe("child");
-    expect(agent!.renderHeightM).toBeGreaterThanOrEqual(AGENT_RENDER_HEIGHT_CHILD_MIN);
-    expect(agent!.renderHeightM).toBeLessThanOrEqual(AGENT_RENDER_HEIGHT_CHILD_MAX);
-  });
-
-  it("assigns an adult age group and an adult-range render height for a high draw", () => {
+  it("gives every spawned body the uniform agent radius", () => {
     const venue = lineVenue();
     const world = createSfmWorld();
     const adjacency = buildAdjacency(venue);
     const agent = spawnAgent("a1", { world, venue, adjacency, rng: () => 0.9 });
-    expect(agent!.ageGroup).toBe("adult");
-    expect(agent!.renderHeightM).toBeGreaterThanOrEqual(AGENT_RENDER_HEIGHT_ADULT_MIN);
-    expect(agent!.renderHeightM).toBeLessThanOrEqual(AGENT_RENDER_HEIGHT_ADULT_MAX);
+    expect(agent).not.toBeNull();
+    expect(world.agents.get("a1")!.radius).toBe(AGENT_BODY_RADIUS_M);
   });
 
-  it("scales hair length to the agent's own height", () => {
+  it("scales hair length to the shared agent height", () => {
     const venue = lineVenue();
     const world = createSfmWorld();
     const adjacency = buildAdjacency(venue);
     const agent = spawnAgent("a1", { world, venue, adjacency, rng: () => 0.9 })!;
-    expect(agent.hairLengthM).toBeGreaterThanOrEqual(agent.renderHeightM * AGENT_HAIR_LENGTH_MIN_FRACTION);
-    expect(agent.hairLengthM).toBeLessThanOrEqual(agent.renderHeightM * AGENT_HAIR_LENGTH_MAX_FRACTION);
+    expect(agent.hairLengthM).toBeGreaterThanOrEqual(AGENT_RENDER_HEIGHT_M * AGENT_HAIR_LENGTH_MIN_FRACTION);
+    expect(agent.hairLengthM).toBeLessThanOrEqual(AGENT_RENDER_HEIGHT_M * AGENT_HAIR_LENGTH_MAX_FRACTION);
   });
 });

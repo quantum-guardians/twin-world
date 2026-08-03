@@ -2,15 +2,17 @@ import { useMemo, useRef } from "react";
 import { useFrame } from "@react-three/fiber";
 import * as THREE from "three";
 import type { VenueSimulation } from "../simulation/engine";
+import { AGENT_RENDER_HEIGHT_M } from "../domain/simPresets";
 import { AGENT_COLOR_ARRIVED, AGENT_COLOR_DEAD, AGENT_COLOR_MOVING } from "./sceneColors";
 
 // Camera-to-nearest-agent distance band over which markers fade in. Inside
-// FADE_NEAR_M the true-scale capsules are already readable on screen, so
-// markers stay hidden (this also keeps them out of the first-person view,
-// which is always inside the crowd); past FADE_FAR_M a 0.4 m-wide body is
-// only a few pixels tall and the constant-size dots take over.
-const MARKER_FADE_NEAR_M = 70;
-const MARKER_FADE_FAR_M = 140;
+// FADE_NEAR_M the exaggerated ~6-7.5 m capsules are already readable on
+// screen, so markers stay hidden (this also keeps them out of the
+// first-person view, which is always inside the crowd); past FADE_FAR_M
+// even the enlarged bodies shrink to a few pixels and the constant-size
+// dots take over.
+const MARKER_FADE_NEAR_M = 250;
+const MARKER_FADE_FAR_M = 450;
 
 /** Screen-space dot diameter (CSS px); constant regardless of camera
  * distance because sizeAttenuation is off. */
@@ -91,12 +93,12 @@ export function AgentMarkers({ simulation, capacity }: AgentMarkersProps) {
       if (!body) continue;
       if (i >= safeCapacity) break;
 
-      positions.setXYZ(i, body.position.x, agent.renderHeightM + MARKER_HEAD_OFFSET_M, body.position.y);
+      positions.setXYZ(i, body.position.x, AGENT_RENDER_HEIGHT_M + MARKER_HEAD_OFFSET_M, body.position.y);
       const color = agent.state === "dead" ? COLOR_DEAD : agent.state === "arrived" ? COLOR_ARRIVED : COLOR_MOVING;
       colors.setXYZ(i, color.r, color.g, color.b);
 
       const dx = camera.position.x - body.position.x;
-      const dy = camera.position.y - agent.renderHeightM;
+      const dy = camera.position.y - AGENT_RENDER_HEIGHT_M;
       const dz = camera.position.z - body.position.y;
       const distSq = dx * dx + dy * dy + dz * dz;
       if (distSq < minDistSq) minDistSq = distSq;

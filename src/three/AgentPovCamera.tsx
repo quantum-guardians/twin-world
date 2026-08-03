@@ -2,7 +2,7 @@ import { useRef } from "react";
 import { useFrame, useThree } from "@react-three/fiber";
 import * as THREE from "three";
 import type { VenueSimulation } from "../simulation/engine";
-import { AGENT_EYE_HEIGHT_RATIO } from "../domain/simPresets";
+import { AGENT_EYE_HEIGHT_RATIO, AGENT_RENDER_HEIGHT_M } from "../domain/simPresets";
 import { useDragLook } from "./useDragLook";
 
 export interface AgentPovCameraProps {
@@ -39,10 +39,9 @@ export function AgentPovCamera({ simulation, agentId }: AgentPovCameraProps) {
 
   useFrame(() => {
     const body = simulation.world.agents.get(agentId);
-    const agent = simulation.agents.find((a) => a.id === agentId);
-    if (!body || !agent) return;
+    if (!body) return;
 
-    const eyeHeight = agent.renderHeightM * AGENT_EYE_HEIGHT_RATIO;
+    const eyeHeight = AGENT_RENDER_HEIGHT_M * AGENT_EYE_HEIGHT_RATIO;
     camera.position.set(body.position.x, eyeHeight, body.position.y);
 
     const speed = Math.hypot(body.velocity.x, body.velocity.y);

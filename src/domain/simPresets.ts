@@ -19,6 +19,9 @@
  * the conversion is right.
  */
 
+/** Default body radius for bare addAgent() calls and physics tests only.
+ * Spawned crowd agents get a visual-matched radius instead - see the
+ * agent-sizing section below. */
 export const AGENT_RADIUS = 0.2; // m (was 4 px)
 export const AGENT_MAX_SPEED = 1.25; // m/s (was 25 px/s)
 export const ARRIVAL_RADIUS = 0.5; // m (was 10 px)
@@ -39,8 +42,11 @@ export const RESPAWN_BATCH_SIZE = 3;
 
 /** Half-angle of the field of vision around the goal direction (paper: 75°). */
 export const VISION_PHI_RAD = (75 * Math.PI) / 180;
-/** Horizon dmax: collisions farther than this are ignored (paper: ~8-10 m). */
-export const VISION_HORIZON_M = 8;
+/** Horizon dmax: collisions farther than this are ignored. The paper's
+ * ~8-10 m assumes real 0.4 m-wide humans; with bodies exaggerated ~8x an
+ * 8 m horizon barely reaches one body ahead, so it is scaled up to keep a
+ * few bodies of anticipation in view. */
+export const VISION_HORIZON_M = 32;
 /** Candidate directions sampled across the vision field (odd → includes α0). */
 export const VISION_RAY_COUNT = 21;
 /** Physics ticks a chosen direction stays cached before re-planning (6 ticks
@@ -117,32 +123,38 @@ export const PRESSURE_DEATH_SECONDS = 3;
 export const PRESSURE_RECOVERY_RATE = 3;
 
 // ---------------------------------------------------------------------------
-// Agent visual sizing. The rendered capsule footprint uses each body's
-// physics radius (AGENT_RADIUS) directly, so what you see is exactly the
-// shoulder width the SFM collides with - capsules touch when bodies touch
-// instead of interpenetrating in dense crowds. Heights are realistic human
-// heights to match that footprint. Height varies per agent (child vs.
-// adult) purely for visual variety; it has no effect on speed, radius, or
-// any other physics quantity.
+// Agent sizing: visual-first, one uniform size for every agent. Agents are
+// deliberately exaggerated (~8x real human proportions) so they stay
+// legible from an overview camera over a venue spanning hundreds of
+// meters, and the PHYSICS COLLIDER IS ENLARGED TO MATCH the rendered
+// capsule, so what you see is exactly what collides - capsules touch when
+// bodies touch. This is a deliberate product decision that trades
+// simulation realism for on-screen readability: with a 1.5 m body radius
+// the physical density ceiling drops far below real crush densities
+// (8-10 people/m²), so the pressure-death model is effectively out of
+// reach and 6 m alleys carry agents single-file. AGENT_RADIUS above
+// remains only as the default for bare addAgent() calls and physics tests.
 // ---------------------------------------------------------------------------
 
-/** Fraction of spawned agents rendered as children rather than adults. */
-export const AGENT_CHILD_FRACTION = 0.12;
+/** Rendered capsule height, identical for every agent. */
+export const AGENT_RENDER_HEIGHT_M = 7.0;
 
-export const AGENT_RENDER_HEIGHT_ADULT_MIN = 1.6; // m, realistic human heights
-export const AGENT_RENDER_HEIGHT_ADULT_MAX = 1.9;
-export const AGENT_RENDER_HEIGHT_CHILD_MIN = 1.1;
-export const AGENT_RENDER_HEIGHT_CHILD_MAX = 1.4;
+/** Body (collider AND rendered capsule) radius, identical for every agent;
+ * ~0.21x the height, keeping the capsule human-shaped. */
+export const AGENT_BODY_RADIUS_M = 1.5;
 
-/** Hair length as a fraction of the agent's own renderHeightM, drawn as a
- * dark shell over the capsule's top cap that hangs down the back. The range
+/** Hair length as a fraction of AGENT_RENDER_HEIGHT_M, drawn as a dark
+ * shell over the capsule's top cap that hangs down the back. The range
  * runs from a buzz cut (barely more than a dark scalp) to past the
  * shoulders, so a crowd of identical capsules reads as individual people
  * from the overview. Visual only - never touches physics or pathing. */
 export const AGENT_HAIR_LENGTH_MIN_FRACTION = 0.01;
 export const AGENT_HAIR_LENGTH_MAX_FRACTION = 0.16;
 
-/** Eye height as a fraction of an agent's own renderHeightM, used to
- * position the first-person "에이전트 시점" camera. 0.93 matches the
- * typical human eye-to-height ratio. */
+/** Eye height as a fraction of AGENT_RENDER_HEIGHT_M, used to position
+ * the first-person "에이전트 시점" camera. A fixed real-world value
+ * (~1.65 m) would put the viewer's eye far below neighboring agents'
+ * exaggerated 7 m bodies, making everyone else look like giants; scaling
+ * with the same render exaggeration keeps the crowd proportioned normally
+ * from inside it. 0.93 matches the typical human eye-to-height ratio. */
 export const AGENT_EYE_HEIGHT_RATIO = 0.93;

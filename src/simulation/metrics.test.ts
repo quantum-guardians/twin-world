@@ -29,8 +29,6 @@ function agent(overrides: Partial<AgentRuntimeState>): AgentRuntimeState {
     startNodeId: "s",
     targetNodeId: "t",
     state: "moving",
-    ageGroup: "adult",
-    renderHeightM: 2.5,
     hairLengthM: 0.2,
     ...overrides,
   };

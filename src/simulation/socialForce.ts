@@ -2,6 +2,7 @@ import type { Point } from "../domain/corridors";
 import { buildWallSegments, type Corridor, type WallSegment } from "../domain/corridors";
 import { SpatialGrid } from "./spatialGrid";
 import {
+  AGENT_BODY_RADIUS_M,
   AGENT_RADIUS,
   MAX_PHYSICAL_SPEED,
   SFM_K_BODY,
@@ -64,10 +65,10 @@ export function createSfmWorld(): SfmWorld {
 }
 
 const WALL_INDEX_CELL_M = 2;
-/** Everything that asks for "walls near an agent" needs at most contact
- * radius + one substep of travel; one meter of margin over the cell's
- * half-diagonal covers all of it comfortably. */
-const WALL_INDEX_REACH_M = WALL_INDEX_CELL_M * Math.SQRT2 * 0.5 + 1;
+/** Everything that asks for "walls near an agent" needs at most the body
+ * radius + one substep of travel beyond the cell's half-diagonal; half a
+ * meter of extra margin covers the rest. */
+const WALL_INDEX_REACH_M = WALL_INDEX_CELL_M * Math.SQRT2 * 0.5 + AGENT_BODY_RADIUS_M + 0.5;
 
 function wallCellKey(cx: number, cy: number): number {
   return (cx + 1_048_576) * 2_097_152 + (cy + 1_048_576);
@@ -155,10 +156,10 @@ function separationDirection(i: number, j: number): { x: number; y: number } {
   return { x: Math.cos(angle), y: Math.sin(angle) };
 }
 
-/** Contact interactions reach at most two body radii (0.4 m), so a cell
- * this size still covers every query with a 3×3 neighborhood while keeping
- * dense-crowd buckets small. */
-const CONTACT_GRID_CELL_M = 0.5;
+/** Contact interactions reach at most two of the largest body radii
+ * (~3.2 m with the enlarged colliders), so a cell this size covers every
+ * query with a small neighborhood while keeping buckets reasonable. */
+const CONTACT_GRID_CELL_M = 2;
 
 function fillContactGrid(grid: SpatialGrid, agents: SfmAgent[]): number {
   grid.clear();

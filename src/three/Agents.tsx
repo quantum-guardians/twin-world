@@ -2,13 +2,11 @@ import { useMemo, useRef } from "react";
 import { useFrame } from "@react-three/fiber";
 import * as THREE from "three";
 import type { VenueSimulation } from "../simulation/engine";
+import { AGENT_RENDER_HEIGHT_M } from "../domain/simPresets";
 import { AGENT_COLOR_ARRIVED, AGENT_COLOR_DEAD, AGENT_COLOR_HAIR, AGENT_COLOR_MOVING } from "./sceneColors";
 
-// Unit capsule (radius 0.5, cylindrical body length 1 -> total height 2).
-// InstancedMesh requires one shared geometry, so a mixed crowd of
-// different sizes is achieved by non-uniformly scaling each instance in
-// useFrame to reach that agent's actual renderHeightM/radius rather than
-// building a geometry per agent.
+// Unit capsule (radius 0.5, cylindrical body length 1 -> total height 2),
+// scaled per instance in useFrame to the shared agent height/radius.
 const UNIT_RADIUS = 0.5;
 const UNIT_BODY_LENGTH = 1;
 const UNIT_HEIGHT = UNIT_BODY_LENGTH + 2 * UNIT_RADIUS;
@@ -57,7 +55,7 @@ export function Agents({ simulation, capacity }: AgentsProps) {
       if (!body) continue;
       if (i >= safeCapacity) break;
 
-      const height = agent.renderHeightM;
+      const height = AGENT_RENDER_HEIGHT_M;
       const radius = body.radius;
       dummy.position.set(body.position.x, height / 2, body.position.y);
       dummy.rotation.set(0, 0, 0);

@@ -6,15 +6,11 @@ import { SpatialGrid } from "./spatialGrid";
 import type { NodeKind, Venue, VenueNode } from "../domain/types";
 import { edgeLength } from "../domain/venueGraph";
 import {
-  AGENT_CHILD_FRACTION,
+  AGENT_BODY_RADIUS_M,
   AGENT_HAIR_LENGTH_MAX_FRACTION,
   AGENT_HAIR_LENGTH_MIN_FRACTION,
   AGENT_MAX_SPEED,
-  AGENT_RADIUS,
-  AGENT_RENDER_HEIGHT_ADULT_MAX,
-  AGENT_RENDER_HEIGHT_ADULT_MIN,
-  AGENT_RENDER_HEIGHT_CHILD_MAX,
-  AGENT_RENDER_HEIGHT_CHILD_MIN,
+  AGENT_RENDER_HEIGHT_M,
   AGENT_SPEED_VARIANCE_MAX,
   AGENT_SPEED_VARIANCE_MIN,
   ARRIVAL_RADIUS,
@@ -29,8 +25,6 @@ import {
   VISION_RAY_COUNT,
   VISION_RIGHT_BIAS,
 } from "../domain/simPresets";
-
-export type AgentAgeGroup = "child" | "adult";
 
 /**
  * Route-finding (Dijkstra over the venue graph) and per-tick steering.
@@ -181,11 +175,6 @@ export interface AgentRuntimeState {
    * "arrived", set by VenueSimulation.tick (not here - computeDesiredDirections
    * has no notion of wall-clock sim time). Used for the 95%-arrival metric. */
   arrivedAtSeconds?: number;
-  /** Visual-only demographic, fixed at spawn. Never affects speed, physics
-   * radius, or pathing - see domain/simPresets.ts's render-sizing section. */
-  ageGroup: AgentAgeGroup;
-  /** Rendered (exaggerated) capsule height in meters for this agent. */
-  renderHeightM: number;
   /** Visual-only hair length in meters, hanging from the head down the
    * back. Fixed at spawn so it doesn't flicker frame to frame. */
   hairLengthM: number;
@@ -202,16 +191,16 @@ export interface SpawnAgentDeps {
 const MAX_SPAWN_PAIR_ATTEMPTS = 30;
 const SPAWN_FORWARD_SPREAD_M = 0.5;
 const SPAWN_LATERAL_MARGIN_M = 0.3;
-/** Minimum free space around a spawn point: a body may not materialize
- * overlapping (or nearly overlapping) an existing one. */
-const SPAWN_CLEARANCE_M = AGENT_RADIUS * 2 + 0.05;
+/** Extra gap beyond touching that a spawn point must keep from every
+ * existing body, so nobody materializes already pressed into the crowd. */
+const SPAWN_CLEARANCE_GAP_M = 0.05;
 
-function isSpawnPositionFree(world: SfmWorld, position: Point): boolean {
-  const clearanceSq = SPAWN_CLEARANCE_M * SPAWN_CLEARANCE_M;
+function isSpawnPositionFree(world: SfmWorld, position: Point, radius: number): boolean {
   for (const body of world.agents.values()) {
+    const clearance = radius + body.radius + SPAWN_CLEARANCE_GAP_M;
     const dx = body.position.x - position.x;
     const dy = body.position.y - position.y;
-    if (dx * dx + dy * dy < clearanceSq) return false;
+    if (dx * dx + dy * dy < clearance * clearance) return false;
   }
   return true;
 }
@@ -256,7 +245,7 @@ export function spawnAgent(id: string, deps: SpawnAgentDeps): AgentRuntimeState 
         (e.fromNodeId === candidatePath[0] && e.toNodeId === candidatePath[1]) ||
         (e.toNodeId === candidatePath[0] && e.fromNodeId === candidatePath[1])
     );
-    const lateralRange = Math.max(0.05, (edge?.width ?? 0) / 2 - AGENT_RADIUS - SPAWN_LATERAL_MARGIN_M);
+    const lateralRange = Math.max(0.05, (edge?.width ?? 0) / 2 - AGENT_BODY_RADIUS_M - SPAWN_LATERAL_MARGIN_M);
 
     const forwardDistance = rng() * Math.min(SPAWN_FORWARD_SPREAD_M, segmentLength * 0.2);
     const lateralDistance = (rng() * 2 - 1) * lateralRange;
@@ -264,7 +253,7 @@ export function spawnAgent(id: string, deps: SpawnAgentDeps): AgentRuntimeState 
       x: first.x + forward.x * forwardDistance + normal.x * lateralDistance,
       y: first.y + forward.y * forwardDistance + normal.y * lateralDistance,
     };
-    if (!isSpawnPositionFree(world, candidate)) continue;
+    if (!isSpawnPositionFree(world, candidate, AGENT_BODY_RADIUS_M)) continue;
 
     startPos = candidate;
     path = candidatePath;
@@ -275,18 +264,13 @@ export function spawnAgent(id: string, deps: SpawnAgentDeps): AgentRuntimeState 
   const waypoints = path.map((nodeId) => nodePositions.get(nodeId)).filter((p): p is Point => p !== undefined);
   if (waypoints.length === 0) return null;
 
-  addAgent(world, id, startPos.x, startPos.y);
+  addAgent(world, id, startPos.x, startPos.y, AGENT_BODY_RADIUS_M);
   deps.lastValidPositions?.set(id, { x: startPos.x, y: startPos.y });
 
   const speedFactor = AGENT_SPEED_VARIANCE_MIN + rng() * (AGENT_SPEED_VARIANCE_MAX - AGENT_SPEED_VARIANCE_MIN);
 
-  const ageGroup: AgentAgeGroup = rng() < AGENT_CHILD_FRACTION ? "child" : "adult";
-  const renderHeightM =
-    ageGroup === "child"
-      ? AGENT_RENDER_HEIGHT_CHILD_MIN + rng() * (AGENT_RENDER_HEIGHT_CHILD_MAX - AGENT_RENDER_HEIGHT_CHILD_MIN)
-      : AGENT_RENDER_HEIGHT_ADULT_MIN + rng() * (AGENT_RENDER_HEIGHT_ADULT_MAX - AGENT_RENDER_HEIGHT_ADULT_MIN);
   const hairLengthM =
-    renderHeightM *
+    AGENT_RENDER_HEIGHT_M *
     (AGENT_HAIR_LENGTH_MIN_FRACTION + rng() * (AGENT_HAIR_LENGTH_MAX_FRACTION - AGENT_HAIR_LENGTH_MIN_FRACTION));
 
   return {
@@ -297,14 +281,14 @@ export function spawnAgent(id: string, deps: SpawnAgentDeps): AgentRuntimeState 
     targetNodeId: target,
     state: waypoints.length > 1 ? "moving" : "arrived",
     speedFactor,
-    ageGroup,
-    renderHeightM,
     hairLengthM,
   };
 }
 
-/** First-pass neighbor scan radius; covers the K nearest in dense crowds. */
-const VISION_NEAR_SCAN_M = 2.5;
+/** First-pass neighbor scan radius; covers the K nearest in dense crowds.
+ * Sized for the enlarged bodies: touching adults sit ~3.2 m apart
+ * center-to-center, so 12 m spans a couple of contact rings. */
+const VISION_NEAR_SCAN_M = 12;
 
 const VISION_PARAMS: VisionParams = {
   phiRad: VISION_PHI_RAD,
@@ -357,8 +341,9 @@ export function computeDesiredDirections(
       radius: body.radius,
     });
   }
-  // Vision queries reach 8 m; a coarse grid keeps each re-planning agent's
-  // neighbor scan local instead of touching the whole crowd.
+  // Vision queries reach VISION_HORIZON_M; a coarse grid keeps each
+  // re-planning agent's neighbor scan local instead of touching the whole
+  // crowd.
   const grid = new SpatialGrid(VISION_HORIZON_M / 2);
   for (let i = 0; i < bodies.length; i++) grid.insert(i, bodies[i].x, bodies[i].y);
 
@@ -386,7 +371,10 @@ export function computeDesiredDirections(
       previousWaypoint !== undefined &&
       (px - waypoint.x) * (waypoint.x - previousWaypoint.x) + (py - waypoint.y) * (waypoint.y - previousWaypoint.y) >= 0;
 
-    if (dist < arrivalRadius || passedWaypoint) {
+    // Arrival is measured from the body's EDGE (dist - radius): with
+    // enlarged colliders a 1.6 m body could never bring its center within
+    // the old fixed disc once anyone else stands near the node.
+    if (dist < arrivalRadius + sfmAgent.radius || passedWaypoint) {
       if (agent.waypointIndex >= agent.waypoints.length - 1) {
         // Reached the destination/exit: the body leaves the venue floor so
         // it stops blocking (and pressing on) the crowd still flowing in.
