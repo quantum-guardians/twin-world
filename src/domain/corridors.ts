@@ -120,6 +120,26 @@ export function pointInCorridor(point: Point, corridor: Corridor, tolerance = 0)
   );
 }
 
+/** True if `point` lies inside the corridor's full node-center-to-node-center
+ * rectangle (not shortened at hub rims). Walkability must use this variant:
+ * the shortened rectangle leaves unwalkable wedge gaps between a hub disk's
+ * rim and the rectangle's corners, and an agent walking wide of the
+ * centerline gets containment-pinned there forever. */
+export function pointInFullCorridor(point: Point, corridor: Corridor, tolerance = 0): boolean {
+  const dx = point.x - corridor.fullA.x;
+  const dy = point.y - corridor.fullA.y;
+  const cos = Math.cos(-corridor.angle);
+  const sin = Math.sin(-corridor.angle);
+  const localX = dx * cos - dy * sin;
+  const localY = dx * sin + dy * cos;
+  const fullLength = Math.hypot(corridor.fullB.x - corridor.fullA.x, corridor.fullB.y - corridor.fullA.y);
+  return (
+    localX >= -tolerance &&
+    localX <= fullLength + tolerance &&
+    Math.abs(localY) <= corridor.width / 2 + tolerance
+  );
+}
+
 /** True if `point` is on the walkable floor: inside any corridor rectangle
  * or any hub disk (inflated by `tolerance`). */
 export function isPointInWalkableArea(
@@ -134,7 +154,7 @@ export function isPointInWalkableArea(
     }
   }
   for (const corridor of corridors) {
-    if (pointInCorridor(point, corridor, tolerance)) return true;
+    if (pointInFullCorridor(point, corridor, tolerance)) return true;
   }
   return false;
 }
