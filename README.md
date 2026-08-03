@@ -223,6 +223,205 @@ twin-world/
 └── README.md
 ```
 
+## AI 활용 및 증빙
+
+Twin World는 **Upstage Solar LLM(`solar-pro2`)**을 자연어 시나리오 구조화와 시뮬레이션 결과 분석에 활용합니다.
+
+AI는 군중 물리 시뮬레이션이나 MR2S 최적화를 대신 실행하지 않습니다. 사용자의 자연어 입력과 시뮬레이션에서 산출된 정량 지표를 사람이 이해하고 활용하기 쉬운 형태로 변환하는 역할을 담당합니다.
+
+### 1. 자연어 시나리오 구조화
+
+사용자는 다음과 같이 행사 상황을 자연어로 입력할 수 있습니다.
+
+```text
+오후 6시부터 북쪽 입구로 3,000명이 유입되고 공연 종료 후 남쪽 출구로 이동한다.
+```
+
+Solar LLM은 입력 문장에서 시뮬레이션에 필요한 인원수를 추출하고 사용자가 확인할 수 있는 한국어 요약을 생성합니다.
+
+```json
+{
+  "population": 3000,
+  "summary": "오후 6시부터 북쪽 입구로 3,000명이 유입되는 시나리오입니다.",
+  "warnings": []
+}
+```
+
+처리 흐름은 다음과 같습니다.
+
+1. 사용자가 시뮬레이션 화면에 자연어 시나리오 입력
+2. 프런트엔드에서 `/api/scenario` 호출
+3. 서버에서 Upstage Solar LLM API 호출
+4. LLM 응답을 JSON으로 파싱하고 값 검증
+5. 사용자가 결과를 확인한 뒤 시뮬레이션에 직접 적용
+
+AI가 인원수를 인식하지 못하면 기본값을 사용합니다. 인원수는 시뮬레이션 안정성을 위해 서버에서 `1~5,000명` 범위로 제한합니다.
+
+### 2. 시뮬레이션 결과 분석 보고서
+
+기준안과 MR2S 최적화안의 시뮬레이션이 실행되면 다음 정량 지표를 Solar LLM에 전달합니다.
+
+- 도착률
+- 95% 대피 완료 시간
+- 고압력 위험 노출 인원
+- 병목 구간 수
+- 시뮬레이션 인원수
+- 장소의 노드 및 간선 수
+
+Solar LLM은 전달된 지표를 기반으로 다음 구조의 분석 결과를 생성합니다.
+
+```json
+{
+  "summary": "기준안과 최적화안의 주요 차이를 설명하는 요약",
+  "causes": [
+    {
+      "title": "주요 위험 요인",
+      "evidence": "시뮬레이션 지표에 기반한 근거"
+    }
+  ],
+  "recommendations": [
+    {
+      "title": "운영 개선 제안",
+      "expectedEffect": "제안 적용 시 기대 효과"
+    }
+  ],
+  "limitations": [
+    "분석 결과를 해석할 때 고려해야 하는 가정과 한계"
+  ]
+}
+```
+
+생성된 보고서는 웹 화면에서 확인하거나 Markdown 파일로 내려받을 수 있습니다.
+
+### 3. AI 연동 구조
+
+```text
+사용자 자연어 입력
+        ↓
+프런트엔드
+        ↓
+Twin World 서버 API
+        ↓
+Upstage Solar LLM
+        ↓
+JSON 응답 검증
+        ↓
+사용자 확인 및 시뮬레이션 적용
+```
+
+시뮬레이션 보고서는 다음 흐름으로 생성됩니다.
+
+```text
+Social Force Model 시뮬레이션
+        ↓
+기준안·최적화안 정량 지표 계산
+        ↓
+Twin World 서버 API
+        ↓
+Upstage Solar LLM 분석
+        ↓
+분석 보고서 표시 및 Markdown 내보내기
+```
+
+### 4. 구현 코드 증빙
+
+| 구분 | 구현 파일 | 내용 |
+| --- | --- | --- |
+| Upstage API 클라이언트 | `api/_lib/upstage.ts` | Solar Chat Completions API 호출, 인증 및 JSON 응답 처리 |
+| 시나리오 구조화 | `api/_lib/scenarioHandler.ts` | 자연어에서 인원수와 시나리오 요약 추출 |
+| 보고서 생성 | `api/_lib/reportHandler.ts` | 기준안과 최적화안의 지표를 이용한 원인·권고안·한계 생성 |
+| 서버 API 엔드포인트 | `api/scenario.ts` | 시나리오 구조화 API 제공 |
+| 서버 API 엔드포인트 | `api/report.ts` | AI 분석 보고서 API 제공 |
+| 프런트엔드 API 모듈 | `src/api/upstageClient.ts` | 브라우저와 자체 서버 API 연결 |
+| 시나리오 입력 화면 | `src/components/simulation/ScenarioInput.tsx` | 자연어 입력, AI 분석 결과 확인 및 적용 |
+| 분석 보고서 화면 | `src/components/comparison/ReportPanel.tsx` | 보고서 생성, 표시 및 Markdown 내보내기 |
+| 시나리오 API 테스트 | `api/_lib/scenarioHandler.test.ts` | 정상 응답, 범위 제한, 오류 처리 검증 |
+| 보고서 API 테스트 | `api/_lib/reportHandler.test.ts` | 보고서 파싱 및 Upstage API 오류 처리 검증 |
+
+### 5. 실제 API 호출 정보
+
+서버에서는 다음 Upstage API를 호출합니다.
+
+```text
+POST https://api.upstage.ai/v1/solar/chat/completions
+```
+
+주요 요청 설정은 다음과 같습니다.
+
+```json
+{
+  "model": "solar-pro2",
+  "messages": [],
+  "response_format": {
+    "type": "json_object"
+  }
+}
+```
+
+`response_format`을 `json_object`로 지정해 후속 코드에서 검증할 수 있는 구조화된 응답을 받습니다.
+
+### 6. API 키 보안
+
+`UPSTAGE_API_KEY`는 브라우저에서 직접 사용하지 않습니다.
+
+- API 키는 서버 전용 환경변수로 관리
+- 브라우저는 Twin World의 `/api/scenario`, `/api/report`만 호출
+- 실제 Upstage API 호출은 `api/` 서버 코드에서만 수행
+- API 키가 포함된 `.env.local`은 Git 저장소에 커밋하지 않음
+- Vercel 배포 환경에서는 프로젝트 환경변수로 별도 등록
+
+따라서 빌드된 프런트엔드 코드와 브라우저 네트워크 요청에 Upstage API 키가 노출되지 않습니다.
+
+### 7. AI 결과 안전장치
+
+LLM의 출력을 그대로 시뮬레이션에 적용하지 않고 다음 검증 절차를 거칩니다.
+
+- 시나리오 API 요청값 유효성 검사
+- LLM 응답의 JSON 형식 검사
+- 인원수의 숫자 여부 검사
+- 인원수를 `1~5,000명` 범위로 제한
+- 값이 없거나 올바르지 않으면 기본 인원수 사용
+- AI가 제안한 인원수는 사용자가 확인 버튼을 눌러야 적용
+- 보고서가 입력받지 않은 사고·사상자 정보를 생성하지 않도록 프롬프트에서 제한
+- AI 권고안은 자동 적용하지 않고 관리자 검토 대상으로만 표시
+- Upstage 설정 오류와 API 오류를 구분해 처리
+
+### 8. AI 기능 재현 방법
+
+#### 자연어 시나리오 구조화
+
+1. `.env.local`에 `UPSTAGE_API_KEY` 설정
+2. `npm run dev` 실행
+3. 3D 시뮬레이션 화면으로 이동
+4. 자연어로 행사 상황과 예상 인원 입력
+5. `AI로 인원수 구조화` 버튼 클릭
+6. AI가 추출한 인원수와 요약 확인
+7. `이 인원수 적용` 버튼을 눌러 시뮬레이션에 반영
+
+#### 분석 보고서 생성
+
+1. 기준안과 MR2S 최적화안 시뮬레이션 실행
+2. 결과 비교 화면으로 이동
+3. `AI 분석 보고서 생성` 버튼 클릭
+4. 요약, 주요 원인, 개선 권고안 및 분석 한계 확인
+5. `Markdown 내보내기` 버튼으로 보고서 저장
+
+#### 자동 테스트
+
+```bash
+npm run test
+```
+
+테스트에서는 다음 항목을 검증합니다.
+
+- 정상적인 시나리오 구조화 응답
+- 비정상 인원수의 범위 제한
+- 인원수가 없는 응답의 기본값 처리
+- 분석 보고서 JSON 파싱
+- Upstage API 설정 오류 처리
+- Upstage API 요청 실패 처리
+
+
 ## 사용 시 유의사항
 
 - 실제 대규모 군중 운영에 적용하기 전 현장 데이터와 전문가 검토가 필요합니다.
