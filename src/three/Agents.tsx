@@ -3,6 +3,7 @@ import { useFrame } from "@react-three/fiber";
 import * as THREE from "three";
 import type { VenueSimulation } from "../simulation/engine";
 import { AGENT_RENDER_HEIGHT_ADULT_MAX, AGENT_RENDER_RADIUS_AT_MAX_HEIGHT } from "../domain/simPresets";
+import { AGENT_COLOR_ARRIVED, AGENT_COLOR_DEAD, AGENT_COLOR_MOVING } from "./sceneColors";
 
 // Unit capsule (radius 0.5, cylindrical body length 1 -> total height 2).
 // InstancedMesh requires one shared geometry, so a mixed crowd of
@@ -13,9 +14,9 @@ const UNIT_RADIUS = 0.5;
 const UNIT_BODY_LENGTH = 1;
 const UNIT_HEIGHT = UNIT_BODY_LENGTH + 2 * UNIT_RADIUS;
 
-const COLOR_MOVING = new THREE.Color("#e8c15a");
-const COLOR_ARRIVED = new THREE.Color("#4a5162");
-const COLOR_DEAD = new THREE.Color("#8a2f2f");
+const COLOR_MOVING = new THREE.Color(AGENT_COLOR_MOVING);
+const COLOR_ARRIVED = new THREE.Color(AGENT_COLOR_ARRIVED);
+const COLOR_DEAD = new THREE.Color(AGENT_COLOR_DEAD);
 
 export interface AgentsProps {
   simulation: VenueSimulation;

@@ -1,5 +1,13 @@
 export type CameraMode = "overview" | "pov" | "free";
 
+/** Every mode gets a hint, including 탑뷰 - OrbitControls' right-drag pan and
+ * wheel zoom are not discoverable otherwise. */
+const HINT_BY_MODE: Record<CameraMode, string> = {
+  overview: "드래그로 회전 · 우클릭 드래그로 이동 · 휠로 확대",
+  pov: "화면을 드래그하면 둘러볼 수 있습니다",
+  free: "WASD로 이동 · Space/Shift로 상하 · Ctrl로 가속 · 화면 클릭 후 마우스로 둘러보기(ESC로 해제)",
+};
+
 export interface CameraModeToolbarProps {
   mode: CameraMode;
   onSelectOverview: () => void;
@@ -36,11 +44,7 @@ export function CameraModeToolbar({ mode, onSelectOverview, onSelectPov, onSelec
           다른 에이전트로 전환
         </button>
       )}
-      {mode !== "overview" && (
-        <span className="pov-toolbar-hint">
-          {mode === "free" ? "WASD로 이동 · 드래그로 둘러보기" : "화면을 드래그하면 둘러볼 수 있습니다"}
-        </span>
-      )}
+      <span className="pov-toolbar-hint">{HINT_BY_MODE[mode]}</span>
     </div>
   );
 }

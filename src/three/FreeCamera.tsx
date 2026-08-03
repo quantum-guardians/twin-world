@@ -2,26 +2,14 @@ import { useEffect, useRef } from "react";
 import { useFrame, useThree } from "@react-three/fiber";
 import * as THREE from "three";
 import { useDragLook } from "./useDragLook";
-
-const MOVE_SPEED = 30; // m/s - venues can span hundreds of meters, so this covers one in well under a minute
-
-// [forward, right] contribution per key, combined below into a single move vector.
-const AXIS_BY_KEY: Record<string, [number, number]> = {
-  KeyW: [1, 0],
-  KeyS: [-1, 0],
-  KeyD: [0, 1],
-  KeyA: [0, -1],
-  ArrowUp: [1, 0],
-  ArrowDown: [-1, 0],
-  ArrowRight: [0, 1],
-  ArrowLeft: [0, -1],
-};
+import { AXIS_BY_KEY, BOOST_KEYS, MIN_ALTITUDE, flySpeed } from "./flyControls";
 
 /**
  * Free-fly camera: WASD/arrow keys move along the current facing
  * direction (projected onto the horizontal plane, so looking up/down
- * doesn't send the camera into the ground or sky), click-and-drag
- * (useDragLook) controls facing. A third way to explore the scene
+ * doesn't send the camera into the ground or sky), Space/Shift move
+ * straight up and down along world up, and mouse look (useDragLook, with
+ * pointer lock on click) controls facing. A third way to explore the scene
  * alongside the fixed overview and the agent-attached POV - starts from
  * wherever the camera currently is (VenueScene remounts the camera to the
  * overview position when entering this mode fresh from the overview, so
@@ -29,7 +17,7 @@ const AXIS_BY_KEY: Record<string, [number, number]> = {
  */
 export function FreeCamera() {
   const { camera } = useThree();
-  const { yaw, pitch } = useDragLook();
+  const { yaw, pitch } = useDragLook(undefined, true);
   const keysDown = useRef(new Set<string>());
   const euler = useRef(new THREE.Euler(0, 0, 0, "YXZ"));
   const forward = useRef(new THREE.Vector3());
@@ -38,9 +26,9 @@ export function FreeCamera() {
 
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
-      if (!AXIS_BY_KEY[e.code]) return;
+      if (!AXIS_BY_KEY[e.code] && !BOOST_KEYS.has(e.code)) return;
       keysDown.current.add(e.code);
-      e.preventDefault(); // arrow keys otherwise scroll the page
+      e.preventDefault(); // arrow keys and Space otherwise scroll the page
     };
     const onKeyUp = (e: KeyboardEvent) => {
       keysDown.current.delete(e.code);
@@ -60,13 +48,17 @@ export function FreeCamera() {
 
     let f = 0;
     let r = 0;
+    let u = 0;
+    let boosting = false;
     for (const code of keysDown.current) {
+      if (BOOST_KEYS.has(code)) boosting = true;
       const axis = AXIS_BY_KEY[code];
       if (!axis) continue;
       f += axis[0];
       r += axis[1];
+      u += axis[2];
     }
-    if (f === 0 && r === 0) return;
+    if (f === 0 && r === 0 && u === 0) return;
 
     forward.current.set(0, 0, -1).applyQuaternion(camera.quaternion);
     forward.current.y = 0;
@@ -77,9 +69,11 @@ export function FreeCamera() {
     if (right.current.lengthSq() > 1e-9) right.current.normalize();
 
     move.current.set(0, 0, 0).addScaledVector(forward.current, f).addScaledVector(right.current, r);
+    move.current.y += u;
     if (move.current.lengthSq() > 1e-9) {
-      move.current.normalize().multiplyScalar(MOVE_SPEED * delta);
+      move.current.normalize().multiplyScalar(flySpeed(camera.position.y, boosting) * delta);
       camera.position.add(move.current);
+      camera.position.y = Math.max(camera.position.y, MIN_ALTITUDE);
     }
   });
 

@@ -11,6 +11,15 @@ const MAX_PITCH = Math.PI / 2 - 0.05;
  * yaw/pitch whenever it changes (e.g. switching to a different followed
  * agent) so a new view starts facing forward.
  *
+ * `enablePointerLock` additionally requests Pointer Lock on canvas click,
+ * which is the conventional free-fly control scheme: the view keeps turning
+ * past the window edge and no button has to stay held while the movement
+ * keys are used. Locking is only enabled for the free camera - agent POV
+ * keeps plain dragging so its toolbar (다른 에이전트로 전환) stays clickable
+ * without pressing ESC first. The drag path below is kept in either case:
+ * the browser can refuse a lock request (it rejects one issued right after
+ * an ESC exit) and it is what still works on touch.
+ *
  * pointerdown is scoped to the canvas (so dragging a toolbar button
  * doesn't start a look-drag), but pointermove/pointerup listen on
  * `window`: relying on setPointerCapture alone turned out not to be
@@ -22,7 +31,7 @@ const MAX_PITCH = Math.PI / 2 - 0.05;
  * preventDefault sidestep that regardless of what the pointer passes over
  * mid-drag.
  */
-export function useDragLook(resetKey?: unknown) {
+export function useDragLook(resetKey?: unknown, enablePointerLock = false) {
   const yaw = useRef(0);
   const pitch = useRef(0);
   const { gl } = useThree();
@@ -38,17 +47,27 @@ export function useDragLook(resetKey?: unknown) {
     let lastX = 0;
     let lastY = 0;
 
+    const isLocked = () => document.pointerLockElement === el;
+
     const onPointerDown = (e: PointerEvent) => {
       if (e.button !== 0) return;
+      if (enablePointerLock && !isLocked()) {
+        // Returns a promise in current browsers, undefined in older ones;
+        // a rejection just means we stay on the drag path below.
+        void (el.requestPointerLock() as unknown as Promise<void> | undefined)?.catch(() => {});
+      }
       dragging = true;
       lastX = e.clientX;
       lastY = e.clientY;
       e.preventDefault();
     };
     const onPointerMove = (e: PointerEvent) => {
-      if (!dragging) return;
-      const dx = e.clientX - lastX;
-      const dy = e.clientY - lastY;
+      // While locked the pointer has no meaningful client position, so the
+      // per-event movement deltas are the only usable signal.
+      const locked = isLocked();
+      if (!locked && !dragging) return;
+      const dx = locked ? e.movementX : e.clientX - lastX;
+      const dy = locked ? e.movementY : e.clientY - lastY;
       lastX = e.clientX;
       lastY = e.clientY;
       yaw.current -= dx * LOOK_SENSITIVITY;
@@ -70,8 +89,11 @@ export function useDragLook(resetKey?: unknown) {
       window.removeEventListener("pointermove", onPointerMove);
       window.removeEventListener("pointerup", onPointerUp);
       el.style.touchAction = previousTouchAction;
+      // Leaving the mode (or unmounting) must not strand the page with a
+      // captured pointer the user can only free with ESC.
+      if (document.pointerLockElement === el) document.exitPointerLock();
     };
-  }, [gl]);
+  }, [gl, enablePointerLock]);
 
   return { yaw, pitch };
 }

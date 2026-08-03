@@ -1,6 +1,6 @@
 import type { Corridor, JunctionHub } from "../domain/corridors";
+import { STREET_COLOR } from "./sceneColors";
 
-const STREET_COLOR = "#33363d";
 const STREET_THICKNESS = 0.15;
 
 export function CorridorMesh({ corridor }: { corridor: Corridor }) {
@@ -9,7 +9,7 @@ export function CorridorMesh({ corridor }: { corridor: Corridor }) {
   return (
     <mesh position={[midX, STREET_THICKNESS / 2, midY]} rotation={[0, -corridor.angle, 0]}>
       <boxGeometry args={[corridor.length, STREET_THICKNESS, corridor.width]} />
-      <meshStandardMaterial color={STREET_COLOR} roughness={0.95} />
+      <meshStandardMaterial color={STREET_COLOR} roughness={0.92} />
     </mesh>
   );
 }
@@ -18,7 +18,7 @@ export function HubMesh({ hub }: { hub: JunctionHub }) {
   return (
     <mesh position={[hub.center.x, STREET_THICKNESS / 2, hub.center.y]}>
       <cylinderGeometry args={[hub.radius, hub.radius, STREET_THICKNESS, 24]} />
-      <meshStandardMaterial color={STREET_COLOR} roughness={0.95} />
+      <meshStandardMaterial color={STREET_COLOR} roughness={0.92} />
     </mesh>
   );
 }
