@@ -19,13 +19,13 @@ export const STREET_COLOR = "#5b6068";
  * spread, so a block of them still reads as a city. Assigned by index, which
  * is stable across re-renders because the layout is deterministic. */
 export const BUILDING_PALETTE = [
-  "#c9c6bf", // concrete
-  "#e2d8c4", // cream plaster
-  "#b07f6e", // brick
-  "#d8bf98", // sandstone
-  "#a9b6bd", // glass and steel
-  "#8f6558", // dark brick
-  "#c2cbbd", // weathered render
+  "#cfccc6", // concrete
+  "#ded8ca", // cream plaster
+  "#c3a79b", // brick
+  "#d6c9b1", // sandstone
+  "#bcc4c9", // glass and steel
+  "#b09a90", // dark brick
+  "#c7cbc4", // weathered render
 ];
 
 /** Near-white crowd over the dark street: the highest-contrast pairing in
