@@ -16,8 +16,9 @@ const MAX_ALTITUDE_SPEED_SCALE = 8;
 export const MIN_ALTITUDE = 1.6; // m
 
 /** [forward, right, up] contribution per key, combined into a single move
- * vector by FreeCamera. Space/Shift for vertical and Ctrl to boost follow
- * the usual free-fly convention (Minecraft creative, Unity scene view). */
+ * vector by FreeCamera. Space/Q for vertical and Shift to boost follow the
+ * Unity scene-view convention. Ctrl is deliberately not a boost key: the
+ * browser closes the tab on Ctrl+W before the page sees the event. */
 export const AXIS_BY_KEY: Record<string, [number, number, number]> = {
   KeyW: [1, 0, 0],
   KeyS: [-1, 0, 0],
@@ -28,11 +29,11 @@ export const AXIS_BY_KEY: Record<string, [number, number, number]> = {
   ArrowRight: [0, 1, 0],
   ArrowLeft: [0, -1, 0],
   Space: [0, 0, 1],
-  ShiftLeft: [0, 0, -1],
-  ShiftRight: [0, 0, -1],
+  KeyE: [0, 0, 1],
+  KeyQ: [0, 0, -1],
 };
 
-export const BOOST_KEYS = new Set(["ControlLeft", "ControlRight"]);
+export const BOOST_KEYS = new Set(["ShiftLeft", "ShiftRight"]);
 
 /** Free-fly speed in m/s. The camera enters this mode at the overview
  * position - hundreds of meters up over a large venue - where a fixed

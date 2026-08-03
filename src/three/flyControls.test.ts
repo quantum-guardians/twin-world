@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { AXIS_BY_KEY, flySpeed } from "./flyControls";
+import { AXIS_BY_KEY, BOOST_KEYS, flySpeed } from "./flyControls";
 
 describe("flySpeed", () => {
   it("keeps the base speed at and below street level", () => {
@@ -21,10 +21,15 @@ describe("flySpeed", () => {
 });
 
 describe("AXIS_BY_KEY", () => {
-  it("maps Space and Shift to opposite vertical directions", () => {
+  it("maps the up and down keys to opposite vertical directions", () => {
     expect(AXIS_BY_KEY.Space[2]).toBe(1);
-    expect(AXIS_BY_KEY.ShiftLeft[2]).toBe(-1);
-    expect(AXIS_BY_KEY.ShiftRight[2]).toBe(-1);
+    expect(AXIS_BY_KEY.KeyE[2]).toBe(1);
+    expect(AXIS_BY_KEY.KeyQ[2]).toBe(-1);
+  });
+
+  it("keeps Ctrl unbound so Ctrl+W cannot close the tab", () => {
+    expect(AXIS_BY_KEY.ControlLeft).toBeUndefined();
+    expect(BOOST_KEYS.has("ControlLeft")).toBe(false);
   });
 
   it("keeps horizontal keys purely horizontal", () => {

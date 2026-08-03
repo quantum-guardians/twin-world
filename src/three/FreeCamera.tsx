@@ -7,7 +7,7 @@ import { AXIS_BY_KEY, BOOST_KEYS, MIN_ALTITUDE, flySpeed } from "./flyControls";
 /**
  * Free-fly camera: WASD/arrow keys move along the current facing
  * direction (projected onto the horizontal plane, so looking up/down
- * doesn't send the camera into the ground or sky), Space/Shift move
+ * doesn't send the camera into the ground or sky), Space/E and Q move
  * straight up and down along world up, and mouse look (useDragLook, with
  * pointer lock on click) controls facing. A third way to explore the scene
  * alongside the fixed overview and the agent-attached POV - starts from
