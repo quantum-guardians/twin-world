@@ -34,5 +34,8 @@ export const BUILDING_PALETTE = [
 export const AGENT_COLOR_MOVING = "#f7f9fb";
 export const AGENT_COLOR_ARRIVED = "#8d97a3";
 export const AGENT_COLOR_DEAD = "#e0322b";
+/** Dark enough to read as hair against the near-white bodies at overview
+ * distance, warm enough not to look like a black hole in the crowd. */
+export const AGENT_COLOR_HAIR = "#2f2620";
 
 export const BOTTLENECK_COLOR = "#ff2d2d";

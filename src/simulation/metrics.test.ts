@@ -31,6 +31,7 @@ function agent(overrides: Partial<AgentRuntimeState>): AgentRuntimeState {
     state: "moving",
     ageGroup: "adult",
     renderHeightM: 2.5,
+    hairLengthM: 0.2,
     ...overrides,
   };
 }

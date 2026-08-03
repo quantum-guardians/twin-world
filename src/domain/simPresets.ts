@@ -134,6 +134,14 @@ export const AGENT_RENDER_HEIGHT_ADULT_MAX = 1.9;
 export const AGENT_RENDER_HEIGHT_CHILD_MIN = 1.1;
 export const AGENT_RENDER_HEIGHT_CHILD_MAX = 1.4;
 
+/** Hair length as a fraction of the agent's own renderHeightM, drawn as a
+ * dark shell over the capsule's top cap that hangs down the back. The range
+ * runs from a buzz cut (barely more than a dark scalp) to past the
+ * shoulders, so a crowd of identical capsules reads as individual people
+ * from the overview. Visual only - never touches physics or pathing. */
+export const AGENT_HAIR_LENGTH_MIN_FRACTION = 0.01;
+export const AGENT_HAIR_LENGTH_MAX_FRACTION = 0.16;
+
 /** Eye height as a fraction of an agent's own renderHeightM, used to
  * position the first-person "에이전트 시점" camera. 0.93 matches the
  * typical human eye-to-height ratio. */

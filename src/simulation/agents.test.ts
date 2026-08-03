@@ -4,6 +4,8 @@ import { buildAdjacency, pickSpawnTargetPair, shortestPath, spawnAgent } from ".
 import { createSfmWorld } from "./socialForce";
 import { mulberry32 } from "../domain/rng";
 import {
+  AGENT_HAIR_LENGTH_MAX_FRACTION,
+  AGENT_HAIR_LENGTH_MIN_FRACTION,
   AGENT_RENDER_HEIGHT_ADULT_MAX,
   AGENT_RENDER_HEIGHT_ADULT_MIN,
   AGENT_RENDER_HEIGHT_CHILD_MAX,
@@ -128,5 +130,14 @@ describe("spawnAgent", () => {
     expect(agent!.ageGroup).toBe("adult");
     expect(agent!.renderHeightM).toBeGreaterThanOrEqual(AGENT_RENDER_HEIGHT_ADULT_MIN);
     expect(agent!.renderHeightM).toBeLessThanOrEqual(AGENT_RENDER_HEIGHT_ADULT_MAX);
+  });
+
+  it("scales hair length to the agent's own height", () => {
+    const venue = lineVenue();
+    const world = createSfmWorld();
+    const adjacency = buildAdjacency(venue);
+    const agent = spawnAgent("a1", { world, venue, adjacency, rng: () => 0.9 })!;
+    expect(agent.hairLengthM).toBeGreaterThanOrEqual(agent.renderHeightM * AGENT_HAIR_LENGTH_MIN_FRACTION);
+    expect(agent.hairLengthM).toBeLessThanOrEqual(agent.renderHeightM * AGENT_HAIR_LENGTH_MAX_FRACTION);
   });
 });

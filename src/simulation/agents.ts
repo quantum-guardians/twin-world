@@ -7,6 +7,8 @@ import type { NodeKind, Venue, VenueNode } from "../domain/types";
 import { edgeLength } from "../domain/venueGraph";
 import {
   AGENT_CHILD_FRACTION,
+  AGENT_HAIR_LENGTH_MAX_FRACTION,
+  AGENT_HAIR_LENGTH_MIN_FRACTION,
   AGENT_MAX_SPEED,
   AGENT_RADIUS,
   AGENT_RENDER_HEIGHT_ADULT_MAX,
@@ -184,6 +186,9 @@ export interface AgentRuntimeState {
   ageGroup: AgentAgeGroup;
   /** Rendered (exaggerated) capsule height in meters for this agent. */
   renderHeightM: number;
+  /** Visual-only hair length in meters, hanging from the head down the
+   * back. Fixed at spawn so it doesn't flicker frame to frame. */
+  hairLengthM: number;
 }
 
 export interface SpawnAgentDeps {
@@ -280,6 +285,9 @@ export function spawnAgent(id: string, deps: SpawnAgentDeps): AgentRuntimeState 
     ageGroup === "child"
       ? AGENT_RENDER_HEIGHT_CHILD_MIN + rng() * (AGENT_RENDER_HEIGHT_CHILD_MAX - AGENT_RENDER_HEIGHT_CHILD_MIN)
       : AGENT_RENDER_HEIGHT_ADULT_MIN + rng() * (AGENT_RENDER_HEIGHT_ADULT_MAX - AGENT_RENDER_HEIGHT_ADULT_MIN);
+  const hairLengthM =
+    renderHeightM *
+    (AGENT_HAIR_LENGTH_MIN_FRACTION + rng() * (AGENT_HAIR_LENGTH_MAX_FRACTION - AGENT_HAIR_LENGTH_MIN_FRACTION));
 
   return {
     id,
@@ -291,6 +299,7 @@ export function spawnAgent(id: string, deps: SpawnAgentDeps): AgentRuntimeState 
     speedFactor,
     ageGroup,
     renderHeightM,
+    hairLengthM,
   };
 }
 
