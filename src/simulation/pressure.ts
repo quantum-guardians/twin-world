@@ -6,7 +6,8 @@ import {
   PRESSURE_OVERLAP_FULL_M,
   PRESSURE_RECOVERY_RATE,
 } from "../domain/simPresets";
-import type { SfmWorld } from "./socialForce";
+import { forEachWallNear, type SfmWorld } from "./socialForce";
+import { SpatialGrid } from "./spatialGrid";
 
 /**
  * Crowd-pressure exposure model, ported from simulation_react's
@@ -42,25 +43,35 @@ export function computeAgentPressures(world: SfmWorld): Map<string, number> {
   const bodies = Array.from(world.agents.values());
   const pressures = new Map(bodies.map((body) => [body.id, 0]));
 
+  // Compression only exists at body overlap, so a contact-scale grid query
+  // replaces the previous all-pairs sweep.
+  const grid = new SpatialGrid(0.5);
+  let maxRadius = 0;
+  for (let i = 0; i < bodies.length; i++) {
+    grid.insert(i, bodies[i].position.x, bodies[i].position.y);
+    if (bodies[i].radius > maxRadius) maxRadius = bodies[i].radius;
+  }
+
   for (let i = 0; i < bodies.length; i++) {
     const first = bodies[i];
-    for (let j = i + 1; j < bodies.length; j++) {
+    grid.forEachInRadius(first.position.x, first.position.y, first.radius + maxRadius, (j) => {
+      if (j <= i) return;
       const second = bodies[j];
       const distance = Math.hypot(first.position.x - second.position.x, first.position.y - second.position.y);
       const compression = compressionFromGap(distance - first.radius - second.radius);
-      if (compression === 0) continue;
+      if (compression === 0) return;
       pressures.set(first.id, (pressures.get(first.id) ?? 0) + compression);
       pressures.set(second.id, (pressures.get(second.id) ?? 0) + compression);
-    }
+    });
   }
 
   for (const body of bodies) {
     let maximumWallCompression = 0;
-    for (const wall of world.walls) {
+    forEachWallNear(world, body.position.x, body.position.y, (wall) => {
       const closest = closestPointOnSegment(body.position, wall.a, wall.b);
       const distance = Math.hypot(body.position.x - closest.x, body.position.y - closest.y);
       maximumWallCompression = Math.max(maximumWallCompression, compressionFromGap(distance - body.radius));
-    }
+    });
     // Several corridor wall segments can meet at one junction and describe
     // the same physical boundary; only the strongest wall contact counts.
     pressures.set(body.id, (pressures.get(body.id) ?? 0) + maximumWallCompression);

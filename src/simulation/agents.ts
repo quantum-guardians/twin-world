@@ -2,6 +2,7 @@ import type { Point } from "../domain/corridors";
 import { isPointInWalkableArea, type Corridor, type JunctionHub } from "../domain/corridors";
 import { addAgent, removeAgent, type DesiredMotion, type SfmWorld } from "./socialForce";
 import { chooseHeuristicMotion, type VisionNeighbor, type VisionParams } from "./visionHeuristic";
+import { SpatialGrid } from "./spatialGrid";
 import type { NodeKind, Venue, VenueNode } from "../domain/types";
 import { edgeLength } from "../domain/venueGraph";
 import {
@@ -286,6 +287,9 @@ export function spawnAgent(id: string, deps: SpawnAgentDeps): AgentRuntimeState 
   };
 }
 
+/** First-pass neighbor scan radius; covers the K nearest in dense crowds. */
+const VISION_NEAR_SCAN_M = 2.5;
+
 const VISION_PARAMS: VisionParams = {
   phiRad: VISION_PHI_RAD,
   horizonM: VISION_HORIZON_M,
@@ -336,7 +340,10 @@ export function computeDesiredDirections(
       radius: body.radius,
     });
   }
-  const horizonSq = VISION_HORIZON_M * VISION_HORIZON_M;
+  // Vision queries reach 8 m; a coarse grid keeps each re-planning agent's
+  // neighbor scan local instead of touching the whole crowd.
+  const grid = new SpatialGrid(VISION_HORIZON_M / 2);
+  for (let i = 0; i < bodies.length; i++) grid.insert(i, bodies[i].x, bodies[i].y);
 
   for (let index = 0; index < agents.length; index++) {
     const agent = agents[index];
@@ -392,18 +399,34 @@ export function computeDesiredDirections(
     const goalEy = dy / dist;
     const baseSpeed = maxSpeed * (agent.speedFactor ?? 1);
 
-    const inRange: { neighbor: VisionNeighbor; distSq: number }[] = [];
-    for (const body of bodies) {
-      if (body.id === agent.id) continue;
+    // Bounded nearest-K selection with an adaptive radius: in a dense pack
+    // the K nearest bodies all sit within a couple of meters, and letting
+    // every decision scan the full 8 m horizon - hundreds of bodies -
+    // dominated the tick at crowd sizes in the thousands. Only fall back
+    // to the full horizon when the close scan comes up short.
+    const nearest: { neighbor: VisionNeighbor; distSq: number }[] = [];
+    const collect = (bodyIndex: number) => {
+      const body = bodies[bodyIndex];
+      if (body.id === agent.id) return;
       const bx = body.x - px;
       const by = body.y - py;
       const distSq = bx * bx + by * by;
-      if (distSq < horizonSq) inRange.push({ neighbor: body, distSq });
+      if (nearest.length === VISION_NEIGHBOR_MAX && distSq >= nearest[nearest.length - 1].distSq) return;
+      let insertAt = nearest.length;
+      while (insertAt > 0 && nearest[insertAt - 1].distSq > distSq) insertAt--;
+      nearest.splice(insertAt, 0, { neighbor: body, distSq });
+      if (nearest.length > VISION_NEIGHBOR_MAX) nearest.pop();
+    };
+    grid.forEachInRadius(px, py, VISION_NEAR_SCAN_M, collect);
+    if (nearest.length < VISION_NEIGHBOR_MAX) {
+      nearest.length = 0;
+      grid.forEachInRadius(px, py, VISION_HORIZON_M, collect);
     }
-    inRange.sort((a, b) => a.distSq - b.distSq);
-    const neighbors = inRange.slice(0, VISION_NEIGHBOR_MAX).map((entry) => entry.neighbor);
+    const neighbors = nearest.map((entry) => entry.neighbor);
 
-    const walls = world.walls.filter((wall) => segmentDistanceSq(px, py, wall.a, wall.b) < horizonSq);
+    const walls = world.walls.filter(
+      (wall) => segmentDistanceSq(px, py, wall.a, wall.b) < VISION_HORIZON_M * VISION_HORIZON_M
+    );
 
     const motion = chooseHeuristicMotion({
       x: px,

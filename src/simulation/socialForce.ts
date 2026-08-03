@@ -1,5 +1,6 @@
 import type { Point } from "../domain/corridors";
 import { buildWallSegments, type Corridor, type WallSegment } from "../domain/corridors";
+import { SpatialGrid } from "./spatialGrid";
 import {
   AGENT_RADIUS,
   MAX_PHYSICAL_SPEED,
@@ -34,6 +35,8 @@ export interface SfmAgent {
 
 export interface SfmWorld {
   walls: WallSegment[];
+  /** Static cell → wall-index buckets; see buildWallIndex. */
+  wallIndex: Map<number, number[]>;
   agents: Map<string, SfmAgent>;
 }
 
@@ -47,22 +50,70 @@ export interface DesiredMotion {
 
 export const FIXED_DT_MS = 1000 / 60;
 
-// Max distance any agent may travel within a single substep. The exponential
-// repulsion varies on the SFM_B (~0.2 m) scale, so per-substep displacement
-// must stay well below it or a fast agent can overshoot past a wall's force
-// peak before ever feeling it.
+// Max distance any agent may travel within a single substep, so a fast
+// agent cannot tunnel past a wall or through a body between force
+// evaluations. At MAX_PHYSICAL_SPEED (5 m/s) a 60 Hz tick moves at most
+// 0.083 m, so a single substep already satisfies this; the ceil() only
+// kicks in for larger dtMs.
 const MAX_STEP_DISPLACEMENT_M = 0.15;
 
-const MIN_SUBSTEPS = 2;
+const MIN_SUBSTEPS = 1;
 
 export function createSfmWorld(): SfmWorld {
-  return { walls: [], agents: new Map() };
+  return { walls: [], wallIndex: new Map(), agents: new Map() };
+}
+
+const WALL_INDEX_CELL_M = 2;
+/** Everything that asks for "walls near an agent" needs at most contact
+ * radius + one substep of travel; one meter of margin over the cell's
+ * half-diagonal covers all of it comfortably. */
+const WALL_INDEX_REACH_M = WALL_INDEX_CELL_M * Math.SQRT2 * 0.5 + 1;
+
+function wallCellKey(cx: number, cy: number): number {
+  return (cx + 1_048_576) * 2_097_152 + (cy + 1_048_576);
+}
+
+/** Walls are static per floor plan, so agent-vs-wall loops use a
+ * precomputed cell index instead of scanning every segment per agent per
+ * substep - with thousands of agents that scan dominated the tick. */
+function buildWallIndex(walls: WallSegment[]): Map<number, number[]> {
+  const index = new Map<number, number[]>();
+  for (let w = 0; w < walls.length; w++) {
+    const wall = walls[w];
+    const minCx = Math.floor((Math.min(wall.a.x, wall.b.x) - WALL_INDEX_REACH_M) / WALL_INDEX_CELL_M);
+    const maxCx = Math.floor((Math.max(wall.a.x, wall.b.x) + WALL_INDEX_REACH_M) / WALL_INDEX_CELL_M);
+    const minCy = Math.floor((Math.min(wall.a.y, wall.b.y) - WALL_INDEX_REACH_M) / WALL_INDEX_CELL_M);
+    const maxCy = Math.floor((Math.max(wall.a.y, wall.b.y) + WALL_INDEX_REACH_M) / WALL_INDEX_CELL_M);
+    for (let cx = minCx; cx <= maxCx; cx++) {
+      for (let cy = minCy; cy <= maxCy; cy++) {
+        const center = { x: (cx + 0.5) * WALL_INDEX_CELL_M, y: (cy + 0.5) * WALL_INDEX_CELL_M };
+        const closest = closestPointOnSegment(center, wall.a, wall.b);
+        if (Math.hypot(center.x - closest.x, center.y - closest.y) > WALL_INDEX_REACH_M) continue;
+        const key = wallCellKey(cx, cy);
+        const bucket = index.get(key);
+        if (bucket) bucket.push(w);
+        else index.set(key, [w]);
+      }
+    }
+  }
+  return index;
+}
+
+/** Invokes `callback` for every wall near (x, y) - within contact/crossing
+ * reach, not the vision horizon. */
+export function forEachWallNear(world: SfmWorld, x: number, y: number, callback: (wall: WallSegment) => void): void {
+  const bucket = world.wallIndex.get(
+    wallCellKey(Math.floor(x / WALL_INDEX_CELL_M), Math.floor(y / WALL_INDEX_CELL_M))
+  );
+  if (!bucket) return;
+  for (const w of bucket) callback(world.walls[w]);
 }
 
 /** Replaces the wall set from the current corridor floor plan. Cheap (plain
  * arrays), safe to call on every floor-plan edit. */
 export function rebuildWalls(world: SfmWorld, corridors: Corridor[]): void {
   world.walls = buildWallSegments(corridors);
+  world.wallIndex = buildWallIndex(world.walls);
 }
 
 export function addAgent(
@@ -106,21 +157,37 @@ function separationDirection(i: number, j: number): { x: number; y: number } {
 
 const MAX_OVERLAP_CORRECTION_M = 0.125;
 
-function resolveAgentOverlaps(agents: SfmAgent[]): void {
+/** Contact interactions reach at most two body radii (0.4 m), so a cell
+ * this size still covers every query with a 3×3 neighborhood while keeping
+ * dense-crowd buckets small. */
+const CONTACT_GRID_CELL_M = 0.5;
+
+function fillContactGrid(grid: SpatialGrid, agents: SfmAgent[]): number {
+  grid.clear();
+  let maxRadius = 0;
+  for (let i = 0; i < agents.length; i++) {
+    grid.insert(i, agents[i].position.x, agents[i].position.y);
+    if (agents[i].radius > maxRadius) maxRadius = agents[i].radius;
+  }
+  return maxRadius;
+}
+
+function resolveAgentOverlaps(agents: SfmAgent[], grid: SpatialGrid): void {
   const n = agents.length;
   const pushX = new Float64Array(n);
   const pushY = new Float64Array(n);
 
+  const maxRadius = fillContactGrid(grid, agents);
   for (let i = 0; i < n; i++) {
     const ai = agents[i];
-    for (let j = i + 1; j < n; j++) {
+    grid.forEachInRadius(ai.position.x, ai.position.y, ai.radius + maxRadius, (j) => {
+      if (j <= i) return;
       const aj = agents[j];
       const rij = ai.radius + aj.radius;
       let dx = ai.position.x - aj.position.x;
       let dy = ai.position.y - aj.position.y;
-      if (dx > rij || dx < -rij || dy > rij || dy < -rij) continue;
       let dist = Math.hypot(dx, dy);
-      if (dist >= rij) continue;
+      if (dist >= rij) return;
       if (dist < 1e-6) {
         const dir = separationDirection(i, j);
         dx = dir.x;
@@ -134,7 +201,7 @@ function resolveAgentOverlaps(agents: SfmAgent[]): void {
       pushY[i] += ny * push;
       pushX[j] -= nx * push;
       pushY[j] -= ny * push;
-    }
+    });
   }
 
   for (let i = 0; i < n; i++) {
@@ -153,16 +220,16 @@ function resolveAgentOverlaps(agents: SfmAgent[]): void {
 }
 
 function resolveWallCollisions(
+  world: SfmWorld,
   agent: SfmAgent,
-  walls: WallSegment[],
   previousX: number,
   previousY: number
 ): void {
-  for (const wall of walls) {
+  forEachWallNear(world, agent.position.x, agent.position.y, (wall) => {
     const wx = wall.b.x - wall.a.x;
     const wy = wall.b.y - wall.a.y;
     const lengthSq = wx * wx + wy * wy;
-    if (lengthSq < 1e-12) continue;
+    if (lengthSq < 1e-12) return;
 
     const crossPrevious = wx * (previousY - wall.a.y) - wy * (previousX - wall.a.x);
     const crossCurrent = wx * (agent.position.y - wall.a.y) - wy * (agent.position.x - wall.a.x);
@@ -179,7 +246,7 @@ function resolveWallCollisions(
     const dy = agent.position.y - closest.y;
     const dist = Math.hypot(dx, dy);
 
-    if (!crossed && dist >= agent.radius) continue;
+    if (!crossed && dist >= agent.radius) return;
 
     let nx: number;
     let ny: number;
@@ -198,7 +265,7 @@ function resolveWallCollisions(
         ny = wx * invLength * sign;
       }
     } else {
-      if (dist < 1e-9) continue;
+      if (dist < 1e-9) return;
       nx = dx / dist;
       ny = dy / dist;
     }
@@ -211,7 +278,7 @@ function resolveWallCollisions(
       agent.velocity.x -= inwardSpeed * nx;
       agent.velocity.y -= inwardSpeed * ny;
     }
-  }
+  });
 }
 
 /**
@@ -234,21 +301,23 @@ export function stepSocialForce(world: SfmWorld, desired: Map<string, DesiredMot
   const ay = new Float64Array(n);
   const previousX = new Float64Array(n);
   const previousY = new Float64Array(n);
+  const grid = new SpatialGrid(CONTACT_GRID_CELL_M);
 
   for (let s = 0; s < substeps; s++) {
     ax.fill(0);
     ay.fill(0);
 
+    const maxRadius = fillContactGrid(grid, agents);
     for (let i = 0; i < n; i++) {
       const ai = agents[i];
-      for (let j = i + 1; j < n; j++) {
+      grid.forEachInRadius(ai.position.x, ai.position.y, ai.radius + maxRadius, (j) => {
+        if (j <= i) return;
         const aj = agents[j];
         const rij = ai.radius + aj.radius;
         let dx = ai.position.x - aj.position.x;
         let dy = ai.position.y - aj.position.y;
-        if (dx > rij || dx < -rij || dy > rij || dy < -rij) continue;
         const distSq = dx * dx + dy * dy;
-        if (distSq > rij * rij) continue;
+        if (distSq > rij * rij) return;
 
         let dist = Math.sqrt(distSq);
         if (dist < 1e-6) {
@@ -274,14 +343,14 @@ export function stepSocialForce(world: SfmWorld, desired: Map<string, DesiredMot
         ay[i] += contactY + frictionY;
         ax[j] -= contactX + frictionX;
         ay[j] -= contactY + frictionY;
-      }
+      });
 
-      for (const wall of world.walls) {
+      forEachWallNear(world, ai.position.x, ai.position.y, (wall) => {
         const closest = closestPointOnSegment(ai.position, wall.a, wall.b);
         const dx = ai.position.x - closest.x;
         const dy = ai.position.y - closest.y;
         const distSq = dx * dx + dy * dy;
-        if (distSq > ai.radius * ai.radius || distSq < 1e-12) continue;
+        if (distSq > ai.radius * ai.radius || distSq < 1e-12) return;
         const dist = Math.sqrt(distSq);
         const nx = dx / dist;
         const ny = dy / dist;
@@ -293,7 +362,7 @@ export function stepSocialForce(world: SfmWorld, desired: Map<string, DesiredMot
         const coefficient = Math.min(SFM_KAPPA * overlap, maxFrictionCoefficient);
         ax[i] += SFM_K_BODY * overlap * nx + coefficient * relTangentialSpeed * tx;
         ay[i] += SFM_K_BODY * overlap * ny + coefficient * relTangentialSpeed * ty;
-      }
+      });
     }
 
     for (let i = 0; i < n; i++) {
@@ -329,9 +398,9 @@ export function stepSocialForce(world: SfmWorld, desired: Map<string, DesiredMot
       agent.position.y += agent.velocity.y * dt;
     }
 
-    resolveAgentOverlaps(agents);
+    resolveAgentOverlaps(agents, grid);
     for (let i = 0; i < n; i++) {
-      resolveWallCollisions(agents[i], world.walls, previousX[i], previousY[i]);
+      resolveWallCollisions(world, agents[i], previousX[i], previousY[i]);
     }
   }
 }
