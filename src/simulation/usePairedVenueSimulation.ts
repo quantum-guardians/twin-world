@@ -41,12 +41,12 @@ export function usePairedVenueSimulation(
   const baseline = useMemo(
     () => new VenueSimulation(baselineVenue, options),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [baselineVenue, options.population, options.seed, resetToken]
+    [baselineVenue, options.population, options.seed, options.urgency, resetToken]
   );
   const optimized = useMemo(
     () => new VenueSimulation(optimizedVenue, options),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [optimizedVenue, options.population, options.seed, resetToken]
+    [optimizedVenue, options.population, options.seed, options.urgency, resetToken]
   );
 
   const playingRef = useRef(playing);

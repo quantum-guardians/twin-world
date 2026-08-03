@@ -27,11 +27,13 @@ type Selected = "baseline" | "optimized";
 export function ComparisonView({ baselineVenue, optimizedVenue }: ComparisonViewProps) {
   const [population, setPopulation] = useState(DEFAULT_AGENT_COUNT);
   const [seed] = useState(1);
+  const [urgency, setUrgency] = useState(0);
   const [selected, setSelected] = useState<Selected>("baseline");
 
   const { baseline, optimized, controls } = usePairedVenueSimulation(baselineVenue, optimizedVenue, {
     population,
     seed,
+    urgency,
   });
   const activeSim = selected === "baseline" ? baseline : optimized;
   const activeVenue = selected === "baseline" ? baselineVenue : optimizedVenue;
@@ -65,6 +67,8 @@ export function ComparisonView({ baselineVenue, optimizedVenue }: ComparisonView
         onChangePlaybackRate={controls.setPlaybackRate}
         population={population}
         onChangePopulation={setPopulation}
+        urgency={urgency}
+        onChangeUrgency={setUrgency}
         onReset={controls.reset}
         counts={activeSim.counts()}
         metrics={activeSim.metrics()}

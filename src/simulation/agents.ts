@@ -17,6 +17,9 @@ import {
   AGENT_SPEED_VARIANCE_MIN,
   ARRIVAL_RADIUS,
   SFM_TAU,
+  URGENCY_NO_YIELD_THRESHOLD,
+  URGENCY_PRESS_SPEED,
+  URGENCY_SPEED_MULTIPLIER,
   VISION_DECISION_INTERVAL_TICKS,
   VISION_HORIZON_M,
   VISION_NEIGHBOR_MAX,
@@ -325,7 +328,8 @@ export function computeDesiredDirections(
   agents: AgentRuntimeState[],
   world: SfmWorld,
   maxSpeed: number = AGENT_MAX_SPEED,
-  arrivalRadius: number = ARRIVAL_RADIUS
+  arrivalRadius: number = ARRIVAL_RADIUS,
+  urgency = 0
 ): Map<string, DesiredMotion> {
   const desired = new Map<string, DesiredMotion>();
 
@@ -397,7 +401,7 @@ export function computeDesiredDirections(
 
     const goalEx = dx / dist;
     const goalEy = dy / dist;
-    const baseSpeed = maxSpeed * (agent.speedFactor ?? 1);
+    const baseSpeed = maxSpeed * (agent.speedFactor ?? 1) * (1 + urgency * (URGENCY_SPEED_MULTIPLIER - 1));
 
     // Bounded nearest-K selection with an adaptive radius: in a dense pack
     // the K nearest bodies all sit within a couple of meters, and letting
@@ -438,9 +442,17 @@ export function computeDesiredDirections(
       neighbors,
       walls,
       params: VISION_PARAMS,
+      allowYield: urgency < URGENCY_NO_YIELD_THRESHOLD,
     });
 
-    const chosen: DesiredMotion = { ex: motion.ex, ey: motion.ey, speed: motion.speed };
+    // Rushing agents never fully stop: the pressing floor keeps them
+    // shoving into whatever blocks them, which is what loads the contact
+    // springs and lets crush pressure build through a packed crowd.
+    const chosen: DesiredMotion = {
+      ex: motion.ex,
+      ey: motion.ey,
+      speed: Math.max(motion.speed, urgency * URGENCY_PRESS_SPEED),
+    };
     // First-ever decision gets a cooldown from the agent's position in the
     // roster so re-planning spreads evenly across ticks instead of every
     // agent recomputing on the same frame.

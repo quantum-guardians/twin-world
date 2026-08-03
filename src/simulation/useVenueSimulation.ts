@@ -37,7 +37,7 @@ export function useVenueSimulation(venue: Venue, options: SimulationOptions): Ve
   const simulation = useMemo(
     () => new VenueSimulation(venue, options),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [venue, options.population, options.seed, resetToken]
+    [venue, options.population, options.seed, options.urgency, resetToken]
   );
 
   const playingRef = useRef(playing);

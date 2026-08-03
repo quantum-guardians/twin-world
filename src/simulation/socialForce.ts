@@ -155,8 +155,6 @@ function separationDirection(i: number, j: number): { x: number; y: number } {
   return { x: Math.cos(angle), y: Math.sin(angle) };
 }
 
-const MAX_OVERLAP_CORRECTION_M = 0.125;
-
 /** Contact interactions reach at most two body radii (0.4 m), so a cell
  * this size still covers every query with a 3×3 neighborhood while keeping
  * dense-crowd buckets small. */
@@ -170,53 +168,6 @@ function fillContactGrid(grid: SpatialGrid, agents: SfmAgent[]): number {
     if (agents[i].radius > maxRadius) maxRadius = agents[i].radius;
   }
   return maxRadius;
-}
-
-function resolveAgentOverlaps(agents: SfmAgent[], grid: SpatialGrid): void {
-  const n = agents.length;
-  const pushX = new Float64Array(n);
-  const pushY = new Float64Array(n);
-
-  const maxRadius = fillContactGrid(grid, agents);
-  for (let i = 0; i < n; i++) {
-    const ai = agents[i];
-    grid.forEachInRadius(ai.position.x, ai.position.y, ai.radius + maxRadius, (j) => {
-      if (j <= i) return;
-      const aj = agents[j];
-      const rij = ai.radius + aj.radius;
-      let dx = ai.position.x - aj.position.x;
-      let dy = ai.position.y - aj.position.y;
-      let dist = Math.hypot(dx, dy);
-      if (dist >= rij) return;
-      if (dist < 1e-6) {
-        const dir = separationDirection(i, j);
-        dx = dir.x;
-        dy = dir.y;
-        dist = 1;
-      }
-      const push = (rij - dist) / 2;
-      const nx = dx / dist;
-      const ny = dy / dist;
-      pushX[i] += nx * push;
-      pushY[i] += ny * push;
-      pushX[j] -= nx * push;
-      pushY[j] -= ny * push;
-    });
-  }
-
-  for (let i = 0; i < n; i++) {
-    let cx = pushX[i];
-    let cy = pushY[i];
-    if (cx === 0 && cy === 0) continue;
-    const magnitude = Math.hypot(cx, cy);
-    if (magnitude > MAX_OVERLAP_CORRECTION_M) {
-      const scale = MAX_OVERLAP_CORRECTION_M / magnitude;
-      cx *= scale;
-      cy *= scale;
-    }
-    agents[i].position.x += cx;
-    agents[i].position.y += cy;
-  }
 }
 
 function resolveWallCollisions(
@@ -398,7 +349,6 @@ export function stepSocialForce(world: SfmWorld, desired: Map<string, DesiredMot
       agent.position.y += agent.velocity.y * dt;
     }
 
-    resolveAgentOverlaps(agents, grid);
     for (let i = 0; i < n; i++) {
       resolveWallCollisions(world, agents[i], previousX[i], previousY[i]);
     }

@@ -22,8 +22,9 @@ export function VenueSimulationView({ venue }: VenueSimulationViewProps) {
   // runs (task 8) must share this same seed so both start from identical
   // spawn/destination assignments - see plan FR-09.
   const [seed] = useState(1);
+  const [urgency, setUrgency] = useState(0);
 
-  const { simulation, controls } = useVenueSimulation(venue, { population, seed });
+  const { simulation, controls } = useVenueSimulation(venue, { population, seed, urgency });
   const pov = useAgentPovSelection(simulation);
   const [cameraMode, setCameraMode] = useState<CameraMode>("overview");
 
@@ -44,6 +45,8 @@ export function VenueSimulationView({ venue }: VenueSimulationViewProps) {
         onChangePlaybackRate={controls.setPlaybackRate}
         population={population}
         onChangePopulation={setPopulation}
+        urgency={urgency}
+        onChangeUrgency={setUrgency}
         onReset={controls.reset}
         counts={simulation.counts()}
         metrics={simulation.metrics()}

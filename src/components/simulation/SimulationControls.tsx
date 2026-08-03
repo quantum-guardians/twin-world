@@ -17,6 +17,9 @@ export interface SimulationControlsProps {
   onChangePlaybackRate: (rate: number) => void;
   population: number;
   onChangePopulation: (population: number) => void;
+  /** Rushing/panic level in [0, 1]; 0 = calm walking. */
+  urgency: number;
+  onChangeUrgency: (urgency: number) => void;
   onReset: () => void;
   counts: SimulationCounts;
   metrics: ArrivalMetrics;
@@ -37,6 +40,8 @@ export function SimulationControls({
   onChangePlaybackRate,
   population,
   onChangePopulation,
+  urgency,
+  onChangeUrgency,
   onReset,
   counts,
   metrics,
@@ -53,6 +58,17 @@ export function SimulationControls({
           max={2000}
           value={population}
           onChange={(e) => onChangePopulation(Math.max(1, Number(e.target.value)))}
+        />
+      </label>
+      <label className="sim-field" title="0%는 평상시 보행(밀지 않음), 높을수록 서두르며 막혀도 계속 밀어붙여 병목에 압력이 쌓입니다">
+        <span>긴급도 {Math.round(urgency * 100)}%</span>
+        <input
+          type="range"
+          min={0}
+          max={100}
+          step={10}
+          value={Math.round(urgency * 100)}
+          onChange={(e) => onChangeUrgency(Number(e.target.value) / 100)}
         />
       </label>
       <button type="button" className="toggle-button" onClick={onTogglePlaying}>

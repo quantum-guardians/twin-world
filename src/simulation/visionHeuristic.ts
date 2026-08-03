@@ -144,8 +144,10 @@ export function chooseHeuristicMotion(args: {
   neighbors: readonly VisionNeighbor[];
   walls: readonly WallSegment[];
   params: VisionParams;
+  /** Set false for rushing agents: they press on instead of sidestepping. */
+  allowYield?: boolean;
 }): HeuristicMotion {
-  const { x, y, radius, goalEx, goalEy, desiredSpeed, neighbors, walls, params } = args;
+  const { x, y, radius, goalEx, goalEy, desiredSpeed, neighbors, walls, params, allowYield = true } = args;
   const { phiRad, horizonM, rayCount, rightBias, tauS } = params;
 
   // Candidate angles ordered center-outward, rightward (positive θ, see
@@ -197,7 +199,7 @@ export function chooseHeuristicMotion(args: {
   // body-rotation behavior the paper models explicitly. Without this, two
   // touching agents facing each other block one another's entire vision
   // cone and freeze permanently.
-  if (bestClearance <= YIELD_TRIGGER_M) {
+  if (allowYield && bestClearance <= YIELD_TRIGGER_M) {
     let yieldF = 0;
     let yieldEx = bestEx;
     let yieldEy = bestEy;

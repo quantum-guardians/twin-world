@@ -72,6 +72,24 @@ export const AGENT_SPEED_VARIANCE_MIN = 0.82;
 export const AGENT_SPEED_VARIANCE_MAX = 1.18;
 
 // ---------------------------------------------------------------------------
+// Urgency (rushing/panic). Moussaïd et al. 2011 reproduce crowd disasters
+// not at normal walking parameters but when pedestrians rush: desired
+// speed rises and people keep pressing forward into contact instead of
+// stopping politely. Urgency ∈ [0, 1] scales exactly that. At 0 the crowd
+// is calm and self-limiting; toward 1, sustained pushing loads the contact
+// springs row by row and crush pressure becomes reachable at bottlenecks.
+// ---------------------------------------------------------------------------
+
+/** Desired-speed multiplier at full urgency (1.25 m/s walk → ~2.2 m/s rush). */
+export const URGENCY_SPEED_MULTIPLIER = 1.8;
+/** Forward pressing speed at full urgency: blocked agents keep shoving at
+ * this floor instead of stopping, transmitting force through the crowd.
+ * People caught in real crushes are moved involuntarily at ~1 m/s. */
+export const URGENCY_PRESS_SPEED = 0.8; // m/s
+/** Above this urgency agents stop politely sidestepping when boxed in. */
+export const URGENCY_NO_YIELD_THRESHOLD = 0.5;
+
+// ---------------------------------------------------------------------------
 // Crowd-pressure exposure model. Relative risk indicator only - see plan's
 // "고압력 위험 노출" framing, not a real injury/fatality predictor.
 //
@@ -83,9 +101,18 @@ export const AGENT_SPEED_VARIANCE_MAX = 1.18;
 // ---------------------------------------------------------------------------
 
 /** Overlap depth at which one contact counts as a full unit of crushing
- * compression (spring accel at this depth: SFM_K_BODY × 0.05 = 35 m/s²). */
-export const PRESSURE_OVERLAP_FULL_M = 0.05;
-export const PRESSURE_DEATH_THRESHOLD = 3.5; // dimensionless compression ratio, unchanged
+ * compression. Calibrated to what sustained pushing can actually maintain:
+ * positional overlap resolution wipes interpenetration every tick, so the
+ * steady-state overlap a shoving neighbor re-creates per 60 Hz tick is
+ * press-speed/60 ≈ 13 mm - a calm crowd's transient jostle stays well
+ * under this, several simultaneous shoved contacts clear the death
+ * threshold. */
+export const PRESSURE_OVERLAP_FULL_M = 0.015;
+// Calibrated against measured extremes on the Busan preset (1500 agents,
+// 3 sim-minutes): calm crowds peak near 1.6, full-urgency crushes reach
+// ~3.5 momentarily. 2.5 sits between - unreachable when walking calmly,
+// held long enough to kill only inside a genuinely loaded crush.
+export const PRESSURE_DEATH_THRESHOLD = 2.5;
 export const PRESSURE_DEATH_SECONDS = 3;
 export const PRESSURE_RECOVERY_RATE = 3;
 

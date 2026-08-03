@@ -18,6 +18,9 @@ import { ADD_AGENTS_BATCH_INTERVAL_MS, ADD_AGENTS_BATCH_SIZE } from "../domain/s
 export interface SimulationOptions {
   population: number;
   seed: number;
+  /** Rushing/panic level in [0, 1]; 0 = calm walking (default). See the
+   * urgency section in domain/simPresets.ts. */
+  urgency?: number;
 }
 
 // Density/bottleneck state is deliberately recomputed on a low-frequency
@@ -44,6 +47,7 @@ export class VenueSimulation {
   readonly lastValidPositions = new Map<string, { x: number; y: number }>();
 
   private readonly rng: () => number;
+  private readonly urgency: number;
   private readonly bottleneckTracker = new BottleneckTracker();
   private pendingSpawnCount: number;
   private msSinceLastSpawnBatch = 0;
@@ -63,6 +67,7 @@ export class VenueSimulation {
     rebuildWalls(this.world, corridors);
     this.adjacency = buildAdjacency(venue);
     this.rng = mulberry32(options.seed);
+    this.urgency = Math.max(0, Math.min(1, options.urgency ?? 0));
     this.pendingSpawnCount = Math.max(0, Math.floor(options.population));
   }
 
@@ -111,7 +116,7 @@ export class VenueSimulation {
 
     const wasMoving = new Set(this.agents.filter((a) => a.state === "moving").map((a) => a.id));
 
-    const desired = computeDesiredDirections(this.agents, this.world);
+    const desired = computeDesiredDirections(this.agents, this.world, undefined, undefined, this.urgency);
     stepSocialForce(this.world, desired, dtMs);
     enforceContainment(this.world, this.corridors, this.hubs, this.lastValidPositions);
     updatePressureDeaths(this.agents, this.world);
