@@ -7,6 +7,7 @@ import { generateBuildings } from "../domain/buildings";
 import { StreetFloor } from "./StreetFloor";
 import { Buildings } from "./Buildings";
 import { NodeMarkers } from "./NodeMarkers";
+import { GROUND_Y } from "./sceneLayout";
 
 function useVenueGeometry(venue: Venue) {
   return useMemo(() => {
@@ -63,15 +64,21 @@ export function VenueScene({ venue, children, disableOrbitControls = false, fov 
           makeDefault
           position={camPosition}
           fov={fov}
-          near={0.1}
-          far={diagonal * 8}
+          // Depth precision is set by the far/near ratio, and a venue that
+          // spans hundreds of meters made it large enough that the street
+          // slab and the ground plane 0.2 m below it resolved to the same
+          // depth at grazing angles - the road surface flickered. Raising
+          // near and tightening far shrinks that ratio by ~10x. near stays
+          // below the agent-POV eye height so nothing clips in first person.
+          near={0.5}
+          far={diagonal * 4}
         />
         {!disableOrbitControls && (
           <OrbitControls target={[centerX, 0, centerY]} maxPolarAngle={Math.PI / 2 - 0.02} />
         )}
         <ambientLight intensity={0.55} />
         <directionalLight position={[centerX + diagonal, diagonal, centerY + diagonal * 0.5]} intensity={1.1} />
-        <mesh rotation={[-Math.PI / 2, 0, 0]} position={[centerX, -0.05, centerY]}>
+        <mesh rotation={[-Math.PI / 2, 0, 0]} position={[centerX, GROUND_Y, centerY]}>
           <planeGeometry args={[diagonal * 6, diagonal * 6]} />
           <meshStandardMaterial color="#101216" roughness={1} />
         </mesh>
