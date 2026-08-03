@@ -8,6 +8,7 @@ import { StreetFloor } from "./StreetFloor";
 import { Buildings } from "./Buildings";
 import { NodeMarkers } from "./NodeMarkers";
 import { GROUND_Y } from "./sceneLayout";
+import { GROUND_COLOR, SKY_COLOR } from "./sceneColors";
 
 function useVenueGeometry(venue: Venue) {
   return useMemo(() => {
@@ -76,11 +77,20 @@ export function VenueScene({ venue, children, disableOrbitControls = false, fov 
         {!disableOrbitControls && (
           <OrbitControls target={[centerX, 0, centerY]} maxPolarAngle={Math.PI / 2 - 0.02} />
         )}
-        <ambientLight intensity={0.55} />
-        <directionalLight position={[centerX + diagonal, diagonal, centerY + diagonal * 0.5]} intensity={1.1} />
+        <color attach="background" args={[SKY_COLOR]} />
+        {/* Haze thickening toward the far edge of the venue: without it a
+            uniformly lit daylight scene has no depth cue at distance, and the
+            outer ring of generated blocks reads as a flat wall. */}
+        <fog attach="fog" args={[SKY_COLOR, diagonal * 2.5, diagonal * 6]} />
+        {/* Overcast-daylight rig: sky/ground hemisphere for the ambient fill
+            plus one sun for direction. Bright enough that the density ramp is
+            read from its own hue rather than from how lit a street is. */}
+        <hemisphereLight args={[SKY_COLOR, GROUND_COLOR, 0.8]} />
+        <ambientLight intensity={0.25} />
+        <directionalLight position={[centerX + diagonal, diagonal, centerY + diagonal * 0.5]} intensity={1.2} />
         <mesh rotation={[-Math.PI / 2, 0, 0]} position={[centerX, GROUND_Y, centerY]}>
           <planeGeometry args={[diagonal * 6, diagonal * 6]} />
-          <meshStandardMaterial color="#101216" roughness={1} />
+          <meshStandardMaterial color={GROUND_COLOR} roughness={1} />
         </mesh>
         <StreetFloor corridors={corridors} hubs={hubs} />
         <Buildings buildings={buildings} />

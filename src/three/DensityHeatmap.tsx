@@ -3,12 +3,12 @@ import { useFrame } from "@react-three/fiber";
 import * as THREE from "three";
 import type { VenueSimulation } from "../simulation/engine";
 import { getDensityColor } from "../domain/density";
+import { BOTTLENECK_COLOR } from "./sceneColors";
 
 // Sits just above StreetFloor's corridor meshes (which are centered on
 // y=0 with a small thickness) so the heat tint renders on top without
 // z-fighting.
 const OVERLAY_Y = 0.18;
-const BOTTLENECK_COLOR = "#ff3b3b";
 
 /**
  * One thin, near-transparent box per corridor (same position/rotation math
@@ -30,7 +30,9 @@ export function DensityHeatmap({ simulation }: { simulation: VenueSimulation }) 
       const density = simulation.densityByCorridor.get(corridor.id) ?? 0;
       const isBottleneck = simulation.bottleneckCorridorIds.has(corridor.id);
       material.color.set(isBottleneck ? BOTTLENECK_COLOR : getDensityColor(density));
-      material.opacity = isBottleneck ? 0.8 : Math.min(0.12 + density * 0.65, 0.75);
+      // Starts nearly clear over the light street so an empty venue reads as
+      // empty, and ramps steeper than the dark theme needed to stay legible.
+      material.opacity = isBottleneck ? 0.85 : Math.min(0.06 + density * 0.8, 0.82);
     }
   });
 
@@ -47,8 +49,8 @@ export function DensityHeatmap({ simulation }: { simulation: VenueSimulation }) 
                 if (material) materialsByCorridorId.current.set(corridor.id, material);
               }}
               transparent
-              opacity={0.12}
-              color="#3fa76b"
+              opacity={0.06}
+              color={getDensityColor(0)}
               depthWrite={false}
             />
           </mesh>
