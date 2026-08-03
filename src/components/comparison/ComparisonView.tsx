@@ -3,6 +3,7 @@ import type { Venue } from "../../domain/types";
 import { usePairedVenueSimulation } from "../../simulation/usePairedVenueSimulation";
 import { VenueScene } from "../../three/VenueScene";
 import { Agents } from "../../three/Agents";
+import { AgentMarkers } from "../../three/AgentMarkers";
 import { DensityHeatmap } from "../../three/DensityHeatmap";
 import { SimulationControls } from "../simulation/SimulationControls";
 import { ComparisonMetricsTable } from "./ComparisonMetricsTable";
@@ -78,6 +79,7 @@ export function ComparisonView({ baselineVenue, optimizedVenue }: ComparisonView
       <VenueScene venue={activeVenue}>
         <DensityHeatmap simulation={activeSim} />
         <Agents simulation={activeSim} capacity={population} />
+        <AgentMarkers simulation={activeSim} capacity={population} />
       </VenueScene>
     </div>
   );

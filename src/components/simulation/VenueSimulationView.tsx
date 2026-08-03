@@ -4,6 +4,7 @@ import { useVenueSimulation } from "../../simulation/useVenueSimulation";
 import { useAgentPovSelection } from "../../simulation/useAgentPovSelection";
 import { VenueScene } from "../../three/VenueScene";
 import { Agents } from "../../three/Agents";
+import { AgentMarkers } from "../../three/AgentMarkers";
 import { DensityHeatmap } from "../../three/DensityHeatmap";
 import { AgentPovCamera } from "../../three/AgentPovCamera";
 import { FreeCamera } from "../../three/FreeCamera";
@@ -72,6 +73,7 @@ export function VenueSimulationView({ venue }: VenueSimulationViewProps) {
       <VenueScene venue={venue} disableOrbitControls={cameraMode !== "overview"} fov={cameraMode === "overview" ? 50 : 75}>
         <DensityHeatmap simulation={simulation} />
         <Agents simulation={simulation} capacity={population} />
+        <AgentMarkers simulation={simulation} capacity={population} />
         {cameraMode === "pov" && pov.agentId && <AgentPovCamera simulation={simulation} agentId={pov.agentId} />}
         {cameraMode === "free" && <FreeCamera />}
       </VenueScene>
