@@ -1,10 +1,12 @@
 import type { NodeKind } from "./types";
 
+/** Node kind colors, shared by the graph editor's chips and the 3D markers.
+ * Chosen to hold contrast on the light surfaces of both. */
 export const KIND_COLOR: Record<NodeKind, string> = {
-  normal: "#5b6270",
-  entrance: "#3fa76b",
-  exit: "#c95b5b",
-  destination: "#c9a13f",
+  normal: "#6b7480",
+  entrance: "#0f9d63",
+  exit: "#d93a30",
+  destination: "#e0a013",
 };
 
 export const KIND_LABEL: Record<NodeKind, string> = {
