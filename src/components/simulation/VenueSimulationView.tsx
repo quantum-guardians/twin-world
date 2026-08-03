@@ -28,6 +28,7 @@ export function VenueSimulationView({ venue }: VenueSimulationViewProps) {
   const { simulation, controls } = useVenueSimulation(venue, { population, seed, urgency });
   const pov = useAgentPovSelection(simulation);
   const [cameraMode, setCameraMode] = useState<CameraMode>("overview");
+  const [flySpeedScale, setFlySpeedScale] = useState(1);
 
   // A new VenueSimulation instance (population change or explicit reset)
   // invalidates any followed agent id, and free-fly position/orbit state
@@ -69,13 +70,15 @@ export function VenueSimulationView({ venue }: VenueSimulationViewProps) {
           setCameraMode("free");
         }}
         onNextAgent={pov.next}
+        flySpeedScale={flySpeedScale}
+        onChangeFlySpeedScale={setFlySpeedScale}
       />
       <VenueScene venue={venue} disableOrbitControls={cameraMode !== "overview"} fov={cameraMode === "overview" ? 50 : 75}>
         <DensityHeatmap simulation={simulation} />
         <Agents simulation={simulation} capacity={population} />
         <AgentMarkers simulation={simulation} capacity={population} />
         {cameraMode === "pov" && pov.agentId && <AgentPovCamera simulation={simulation} agentId={pov.agentId} />}
-        {cameraMode === "free" && <FreeCamera />}
+        {cameraMode === "free" && <FreeCamera speedScale={flySpeedScale} />}
       </VenueScene>
     </div>
   );

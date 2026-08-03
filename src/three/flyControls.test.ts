@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { AXIS_BY_KEY, BOOST_KEYS, flySpeed } from "./flyControls";
+import { AXIS_BY_KEY, BOOST_KEYS, flySpeed, isTypingTarget } from "./flyControls";
 
 describe("flySpeed", () => {
   it("keeps the base speed at and below street level", () => {
@@ -13,6 +13,11 @@ describe("flySpeed", () => {
 
   it("caps the altitude scale", () => {
     expect(flySpeed(10_000, false)).toBe(flySpeed(160, false));
+  });
+
+  it("multiplies by the toolbar speed scale", () => {
+    expect(flySpeed(20, false, 0.25)).toBe(flySpeed(20, false) * 0.25);
+    expect(flySpeed(20, true, 4)).toBe(flySpeed(20, true) * 4);
   });
 
   it("multiplies by the boost factor", () => {
@@ -30,6 +35,15 @@ describe("AXIS_BY_KEY", () => {
   it("keeps Ctrl unbound so Ctrl+W cannot close the tab", () => {
     expect(AXIS_BY_KEY.ControlLeft).toBeUndefined();
     expect(BOOST_KEYS.has("ControlLeft")).toBe(false);
+  });
+
+  it("ignores keys typed into text fields but not the canvas", () => {
+    for (const tagName of ["INPUT", "TEXTAREA", "SELECT"]) {
+      expect(isTypingTarget({ tagName } as unknown as EventTarget)).toBe(true);
+    }
+    expect(isTypingTarget({ isContentEditable: true } as unknown as EventTarget)).toBe(true);
+    expect(isTypingTarget({ tagName: "CANVAS" } as unknown as EventTarget)).toBe(false);
+    expect(isTypingTarget(null)).toBe(false);
   });
 
   it("keeps horizontal keys purely horizontal", () => {

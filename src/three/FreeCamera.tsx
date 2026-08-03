@@ -2,7 +2,7 @@ import { useEffect, useRef } from "react";
 import { useFrame, useThree } from "@react-three/fiber";
 import * as THREE from "three";
 import { useDragLook } from "./useDragLook";
-import { AXIS_BY_KEY, BOOST_KEYS, MIN_ALTITUDE, flySpeed } from "./flyControls";
+import { AXIS_BY_KEY, BOOST_KEYS, MIN_ALTITUDE, flySpeed, isTypingTarget } from "./flyControls";
 
 /**
  * Free-fly camera: WASD/arrow keys move along the current facing
@@ -15,7 +15,7 @@ import { AXIS_BY_KEY, BOOST_KEYS, MIN_ALTITUDE, flySpeed } from "./flyControls";
  * overview position when entering this mode fresh from the overview, so
  * no separate initial-position prop is needed here).
  */
-export function FreeCamera() {
+export function FreeCamera({ speedScale = 1 }: { speedScale?: number }) {
   const { camera } = useThree();
   const { yaw, pitch } = useDragLook(undefined, true);
   const keysDown = useRef(new Set<string>());
@@ -26,6 +26,7 @@ export function FreeCamera() {
 
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
+      if (isTypingTarget(e.target)) return;
       if (!AXIS_BY_KEY[e.code] && !BOOST_KEYS.has(e.code)) return;
       keysDown.current.add(e.code);
       e.preventDefault(); // arrow keys and Space otherwise scroll the page
@@ -71,7 +72,7 @@ export function FreeCamera() {
     move.current.set(0, 0, 0).addScaledVector(forward.current, f).addScaledVector(right.current, r);
     move.current.y += u;
     if (move.current.lengthSq() > 1e-9) {
-      move.current.normalize().multiplyScalar(flySpeed(camera.position.y, boosting) * delta);
+      move.current.normalize().multiplyScalar(flySpeed(camera.position.y, boosting, speedScale) * delta);
       camera.position.add(move.current);
       camera.position.y = Math.max(camera.position.y, MIN_ALTITUDE);
     }

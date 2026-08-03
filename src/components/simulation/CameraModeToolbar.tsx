@@ -1,3 +1,5 @@
+import { MAX_SPEED_SCALE, MIN_SPEED_SCALE, SPEED_SCALE_STEP } from "../../three/flyControls";
+
 export type CameraMode = "overview" | "pov" | "free";
 
 /** Every mode gets a hint, including 탑뷰 - OrbitControls' right-drag pan and
@@ -14,12 +16,22 @@ export interface CameraModeToolbarProps {
   onSelectPov: () => void;
   onSelectFree: () => void;
   onNextAgent: () => void;
+  flySpeedScale: number;
+  onChangeFlySpeedScale: (scale: number) => void;
 }
 
 /** Three mutually exclusive ways to navigate the 3D scene: the fixed
  * overview (OrbitControls), an agent-attached first-person POV, and a
  * free-fly camera (WASD + drag-to-look). */
-export function CameraModeToolbar({ mode, onSelectOverview, onSelectPov, onSelectFree, onNextAgent }: CameraModeToolbarProps) {
+export function CameraModeToolbar({
+  mode,
+  onSelectOverview,
+  onSelectPov,
+  onSelectFree,
+  onNextAgent,
+  flySpeedScale,
+  onChangeFlySpeedScale,
+}: CameraModeToolbarProps) {
   return (
     <div className="pov-toolbar">
       <button
@@ -39,6 +51,20 @@ export function CameraModeToolbar({ mode, onSelectOverview, onSelectPov, onSelec
       >
         자유 시점 (WASD)
       </button>
+      {mode === "free" && (
+        <label className="sim-field">
+          <span>이동 속도</span>
+          <input
+            type="range"
+            min={MIN_SPEED_SCALE}
+            max={MAX_SPEED_SCALE}
+            step={SPEED_SCALE_STEP}
+            value={flySpeedScale}
+            onChange={(e) => onChangeFlySpeedScale(Number(e.target.value))}
+          />
+          <span>{flySpeedScale}x</span>
+        </label>
+      )}
       {mode === "pov" && (
         <button type="button" className="toggle-button" onClick={onNextAgent}>
           다른 에이전트로 전환

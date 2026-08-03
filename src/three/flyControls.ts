@@ -35,15 +35,31 @@ export const AXIS_BY_KEY: Record<string, [number, number, number]> = {
 
 export const BOOST_KEYS = new Set(["ShiftLeft", "ShiftRight"]);
 
+/** The key listener is on window, so W/A/S/D typed into the scenario
+ * textarea would otherwise fly the camera - and preventDefault would eat
+ * the character. Ignore keys aimed at a text field. */
+export function isTypingTarget(target: EventTarget | null): boolean {
+  const el = target as (Partial<HTMLElement> & { tagName?: string }) | null;
+  if (!el) return false;
+  if (el.isContentEditable) return true;
+  return el.tagName === "INPUT" || el.tagName === "TEXTAREA" || el.tagName === "SELECT";
+}
+
+/** Range of the toolbar speed slider, as a multiplier on the base speed. */
+export const MIN_SPEED_SCALE = 0.25;
+export const MAX_SPEED_SCALE = 4;
+export const SPEED_SCALE_STEP = 0.25;
+
 /** Free-fly speed in m/s. The camera enters this mode at the overview
  * position - hundreds of meters up over a large venue - where a fixed
  * street-level speed reads as barely moving, so speed scales with altitude
- * (capped) and the boost key multiplies on top. */
-export function flySpeed(altitudeY: number, boosting: boolean): number {
+ * (capped), the toolbar slider scales it explicitly, and the boost key
+ * multiplies on top. */
+export function flySpeed(altitudeY: number, boosting: boolean, speedScale = 1): number {
   const altitudeScale = THREE.MathUtils.clamp(
     altitudeY / SPEED_REFERENCE_ALTITUDE,
     1,
     MAX_ALTITUDE_SPEED_SCALE
   );
-  return MOVE_SPEED * altitudeScale * (boosting ? BOOST_MULTIPLIER : 1);
+  return MOVE_SPEED * altitudeScale * speedScale * (boosting ? BOOST_MULTIPLIER : 1);
 }
