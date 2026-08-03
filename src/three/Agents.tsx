@@ -2,7 +2,6 @@ import { useMemo, useRef } from "react";
 import { useFrame } from "@react-three/fiber";
 import * as THREE from "three";
 import type { VenueSimulation } from "../simulation/engine";
-import { AGENT_RENDER_HEIGHT_ADULT_MAX, AGENT_RENDER_RADIUS_AT_MAX_HEIGHT } from "../domain/simPresets";
 import { AGENT_COLOR_ARRIVED, AGENT_COLOR_DEAD, AGENT_COLOR_MOVING } from "./sceneColors";
 
 // Unit capsule (radius 0.5, cylindrical body length 1 -> total height 2).
@@ -31,8 +30,8 @@ export interface AgentsProps {
  * simulation's mutable state directly. Population can reach the hundreds
  * at 60 Hz, so this intentionally bypasses React's per-agent
  * reconciliation (no <mesh> per agent) - only the instance buffers are
- * touched each frame. Radius scales with height so a child renders as a
- * smaller person rather than a shrunken adult.
+ * touched each frame. Each capsule's radius is the body's SFM collision
+ * radius, so the rendered shoulder width matches the physics exactly.
  */
 export function Agents({ simulation, capacity }: AgentsProps) {
   const meshRef = useRef<THREE.InstancedMesh>(null);
@@ -50,7 +49,7 @@ export function Agents({ simulation, capacity }: AgentsProps) {
       if (i >= safeCapacity) break;
 
       const height = agent.renderHeightM;
-      const radius = AGENT_RENDER_RADIUS_AT_MAX_HEIGHT * (height / AGENT_RENDER_HEIGHT_ADULT_MAX);
+      const radius = body.radius;
       dummy.position.set(body.position.x, height / 2, body.position.y);
       dummy.rotation.set(0, 0, 0);
       dummy.scale.set(radius / UNIT_RADIUS, height / UNIT_HEIGHT, radius / UNIT_RADIUS);
