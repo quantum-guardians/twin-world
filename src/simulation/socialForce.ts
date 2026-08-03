@@ -167,7 +167,11 @@ function resolveWallCollisions(
     const crossPrevious = wx * (previousY - wall.a.y) - wy * (previousX - wall.a.x);
     const crossCurrent = wx * (agent.position.y - wall.a.y) - wy * (agent.position.x - wall.a.x);
     const t = ((agent.position.x - wall.a.x) * wx + (agent.position.y - wall.a.y) * wy) / lengthSq;
-    const withinSpan = t >= -0.05 && t <= 1.05;
+    // Span tolerance must be absolute, not fractional: a ±5%-of-length
+    // overhang on a 200 m alley wall extends a phantom wall ~10 m across
+    // the junction at its end, sealing the intersection shut.
+    const spanTolerance = 0.05 / Math.sqrt(lengthSq);
+    const withinSpan = t >= -spanTolerance && t <= 1 + spanTolerance;
 
     const crossed = withinSpan && crossPrevious * crossCurrent < 0;
     const closest = closestPointOnSegment(agent.position, wall.a, wall.b);
