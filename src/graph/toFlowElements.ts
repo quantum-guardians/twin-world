@@ -84,7 +84,9 @@ export function decorateEdgesForRender(
       label: `${width}m`,
       style: {
         strokeWidth: Math.max(2, Math.min(width / 2, 10)),
-        stroke: selected ? "#e8b93f" : "#7d8695",
+        // Selection accent matches the app's --accent; the resting stroke is
+        // the mid ink used for secondary text on the light canvas.
+        stroke: selected ? "#d97757" : "#6b7480",
       },
       markerEnd: direction === "forward" || direction === "bidirectional" ? ARROW : undefined,
       markerStart: direction === "reverse" || direction === "bidirectional" ? ARROW : undefined,

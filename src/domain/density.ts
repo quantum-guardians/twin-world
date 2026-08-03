@@ -2,11 +2,14 @@ import type { Point } from "./corridors";
 import { pointInCorridor, type Corridor } from "./corridors";
 import { AGENT_RADIUS } from "./simPresets";
 
+/** Four-step congestion ramp. Hues are deepened relative to a pastel scale so
+ * each step stays distinguishable when drawn semi-transparently over the light
+ * street surface (see src/three/sceneColors.ts for the surfaces themselves). */
 export function getDensityColor(density: number): string {
-  if (density < 0.2) return "#3fa76b"; // low: green
-  if (density < 0.5) return "#c9a13f"; // medium: yellow
-  if (density < 0.8) return "#d97a3f"; // high: orange
-  return "#c95b5b"; // critical: red
+  if (density < 0.2) return "#12b981"; // low: green
+  if (density < 0.5) return "#f5b21a"; // medium: amber
+  if (density < 0.8) return "#f2701d"; // high: orange
+  return "#e5342c"; // critical: red
 }
 
 /**
