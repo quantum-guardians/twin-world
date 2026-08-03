@@ -3,22 +3,30 @@
  * tokens in src/styles/app.css (three.js materials cannot read CSS custom
  * properties, so the two files are kept deliberately in step).
  *
- * The scene is built on one strong contrast rather than a spread of tones:
- * a pale field (ground, then buildings one step darker) with the walkable
- * street network cut into it as a dark ribbon. Everything structural is
- * neutral; saturated color belongs to data alone - the density ramp, the
- * bottleneck flash, the crowd itself - and it reads loudest over that dark
- * street. Earlier warm-grey variants of this palette turned to mud, since
- * the scene renders without shadows and needs the tonal jump to give form.
+ * Blue sky, green field, mixed building materials, and the street network cut
+ * into it as a dark ribbon. The scene renders without a shadow pass, so form
+ * comes from that tonal jump between the pale ground and the dark street plus
+ * the variation between neighbouring blocks. Saturated signal color still
+ * belongs to data alone - density ramp, bottleneck flash, the crowd.
  */
 
-export const SKY_COLOR = "#eef2f5";
-export const GROUND_COLOR = "#e4e5e1";
-export const STREET_COLOR = "#3f4854";
+export const SKY_COLOR = "#bfe0f2";
+export const GROUND_COLOR = "#d9eda4";
+export const STREET_COLOR = "#5b6068";
 
-/** Small deterministic lightness variation per building so a whole block
- * doesn't read as one flat slab, all within one step of the ground. */
-export const BUILDING_PALETTE = ["#d3d2cc", "#cbcac3", "#dad9d3", "#c4c3bc", "#cfcec7"];
+/** Facade colors drawn from ordinary building materials - concrete, cream
+ * plaster, brick, sandstone, glass-and-steel - rather than a decorative
+ * spread, so a block of them still reads as a city. Assigned by index, which
+ * is stable across re-renders because the layout is deterministic. */
+export const BUILDING_PALETTE = [
+  "#c9c6bf", // concrete
+  "#e2d8c4", // cream plaster
+  "#b07f6e", // brick
+  "#d8bf98", // sandstone
+  "#a9b6bd", // glass and steel
+  "#8f6558", // dark brick
+  "#c2cbbd", // weathered render
+];
 
 /** Near-white crowd over the dark street: the highest-contrast pairing in
  * the scene, so individual people stay visible while the density tint
