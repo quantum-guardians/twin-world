@@ -5,7 +5,6 @@ import { mulberry32 } from "../domain/rng";
 import {
   buildAdjacency,
   computeDesiredDirections,
-  constrainAgentsToRoutes,
   enforceContainment,
   spawnAgent,
   type AdjacencyEntry,
@@ -68,8 +67,10 @@ export class VenueSimulation {
   }
 
   /** Spawns up to ADD_AGENTS_BATCH_SIZE agents at a time on a fixed
-   * interval instead of dumping the whole population in one frame, which
-   * would drop a pile of deeply-overlapping bodies on the floor at once. */
+   * interval instead of dumping the whole population in one frame. When
+   * spawnAgent reports the entrances are too congested for another body
+   * (null), the remainder stays queued for the next interval - people
+   * wait outside a full venue instead of materializing inside the crowd. */
   private drainSpawnQueue(dtMs: number): void {
     if (this.pendingSpawnCount <= 0) return;
     this.msSinceLastSpawnBatch += dtMs;
@@ -78,7 +79,7 @@ export class VenueSimulation {
 
     const batchSize = Math.min(ADD_AGENTS_BATCH_SIZE, this.pendingSpawnCount);
     for (let i = 0; i < batchSize; i++) {
-      const id = `agent-${this.nextAgentIndex++}`;
+      const id = `agent-${this.nextAgentIndex}`;
       const state = spawnAgent(id, {
         world: this.world,
         venue: this.venue,
@@ -86,8 +87,10 @@ export class VenueSimulation {
         rng: this.rng,
         lastValidPositions: this.lastValidPositions,
       });
+      if (!state) break;
+      this.nextAgentIndex++;
       this.pendingSpawnCount--;
-      if (state) this.agents.push(state);
+      this.agents.push(state);
     }
   }
 
@@ -110,7 +113,6 @@ export class VenueSimulation {
 
     const desired = computeDesiredDirections(this.agents, this.world);
     stepSocialForce(this.world, desired, dtMs);
-    constrainAgentsToRoutes(this.agents, this.world);
     enforceContainment(this.world, this.corridors, this.hubs, this.lastValidPositions);
     updatePressureDeaths(this.agents, this.world);
 

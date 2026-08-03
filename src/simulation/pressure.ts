@@ -1,9 +1,9 @@
 import type { AgentRuntimeState } from "./agents";
 import type { Point } from "../domain/corridors";
 import {
-  PRESSURE_CONTACT_RANGE_PX,
   PRESSURE_DEATH_SECONDS,
   PRESSURE_DEATH_THRESHOLD,
+  PRESSURE_OVERLAP_FULL_M,
   PRESSURE_RECOVERY_RATE,
 } from "../domain/simPresets";
 import type { SfmWorld } from "./socialForce";
@@ -28,13 +28,16 @@ function closestPointOnSegment(point: Point, a: Point, b: Point): Point {
   return { x: a.x + abx * t, y: a.y + aby * t };
 }
 
+/** Compression contributed by one contact, from how deeply the bodies
+ * interpenetrate (gap < 0). Touching without deformation (gap = 0) is a
+ * calm packed crowd and contributes nothing. */
 function compressionFromGap(gap: number): number {
-  return Math.max(0, Math.min(2, (PRESSURE_CONTACT_RANGE_PX - gap) / PRESSURE_CONTACT_RANGE_PX));
+  return Math.max(0, Math.min(2, -gap / PRESSURE_OVERLAP_FULL_M));
 }
 
-/** Estimates local compressive pressure from simultaneous close contacts
- * with pedestrians and walls. A normal queue stays below the fatal
- * threshold; a tightly packed body with several contacts does not. */
+/** Estimates local compressive pressure from simultaneous squeezed
+ * contacts with pedestrians and walls. A packed-but-calm queue stays at
+ * zero; a body being visibly compressed from several sides does not. */
 export function computeAgentPressures(world: SfmWorld): Map<string, number> {
   const bodies = Array.from(world.agents.values());
   const pressures = new Map(bodies.map((body) => [body.id, 0]));

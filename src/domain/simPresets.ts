@@ -22,8 +22,6 @@
 export const AGENT_RADIUS = 0.2; // m (was 4 px)
 export const AGENT_MAX_SPEED = 1.25; // m/s (was 25 px/s)
 export const ARRIVAL_RADIUS = 0.5; // m (was 10 px)
-/** Offset from the corridor centerline used for right-hand traffic. */
-export const AGENT_LANE_OFFSET = 0.25; // m (was 5 px)
 
 export const DEFAULT_AGENT_COUNT = 150;
 export const ADD_AGENTS_BATCH_SIZE = 5;
@@ -31,41 +29,62 @@ export const ADD_AGENTS_BATCH_INTERVAL_MS = 200;
 export const RESPAWN_BATCH_SIZE = 3;
 
 // ---------------------------------------------------------------------------
-// Social Force Model (Helbing & Molnár).
+// Vision-based steering heuristics (Moussaïd, Helbing & Theraulaz 2011,
+// PNAS 108(17), doi:10.1073/pnas.1016507108). Replaces the exponential
+// psychological repulsion of classic Helbing SFM: each agent picks the
+// direction in its field of vision that minimizes anticipated detour given
+// the distance-to-collision f(α), and walks no faster than it could stop
+// within (v = min(v0, f/τ)). Physical contact forces below are unchanged.
 // ---------------------------------------------------------------------------
 
-export const SFM_TAU = 0.5; // s
-export const SFM_A_AGENT = 15; // m/s² (was 300 px/s²)
-export const SFM_B_AGENT = 0.2; // m (was 4 px)
-export const SFM_A_WALL = 25; // m/s² (was 500 px/s²)
-export const SFM_B_WALL = 0.2; // m (was 4 px)
+/** Half-angle of the field of vision around the goal direction (paper: 75°). */
+export const VISION_PHI_RAD = (75 * Math.PI) / 180;
+/** Horizon dmax: collisions farther than this are ignored (paper: ~8-10 m). */
+export const VISION_HORIZON_M = 8;
+/** Candidate directions sampled across the vision field (odd → includes α0). */
+export const VISION_RAY_COUNT = 21;
+/** Physics ticks a chosen direction stays cached before re-planning (6 ticks
+ * = 100 ms @ 60 Hz, on the order of human steering reaction time). */
+export const VISION_DECISION_INTERVAL_TICKS = 6;
+/** Nearest neighbors within the horizon considered per decision. */
+export const VISION_NEIGHBOR_MAX = 12;
+/** Multiplicative cost discount for rightward rays. Breaks perfectly
+ * symmetric head-on ties deterministically and encodes the right-hand
+ * walking norm that the removed lane-offset hack used to hard-code. */
+export const VISION_RIGHT_BIAS = 0.02;
+
+// ---------------------------------------------------------------------------
+// Physical contact forces (Helbing, Farkas & Vicsek 2000, Nature 407).
+// These act only when bodies/walls actually touch and are the source of the
+// crowd-crush pressure metric - never removed or scaled by steering.
+// ---------------------------------------------------------------------------
+
+export const SFM_TAU = 0.5; // s, driving-force relaxation & stopping time τ
 export const SFM_K_BODY = 700; // 1/s², unit-invariant under rescale
 export const SFM_KAPPA = 600; // 1/(m*s) (was 30 1/(px*s))
-export const SFM_MAX_ACCEL = 125; // m/s² (was 2500 px/s²)
-export const SFM_SPEED_FACTOR = 1.3;
-export const SFM_CUTOFF_FACTOR = 5;
-export const SFM_ANISOTROPY_LAMBDA = 0.5;
+export const SFM_MAX_ACCEL = 125; // m/s² numeric-stability clamp
+/** Absolute velocity cap (numeric safety only). Deliberately far above
+ * walking speed so dense-crowd contact forces can shove people around -
+ * crowd turbulence - instead of being clipped at 1.3× desired speed. */
+export const MAX_PHYSICAL_SPEED = 5; // m/s
 
 export const AGENT_SPEED_VARIANCE_MIN = 0.82;
 export const AGENT_SPEED_VARIANCE_MAX = 1.18;
 
 // ---------------------------------------------------------------------------
-// Impatience ("faster is slower" clog-breaking).
-// ---------------------------------------------------------------------------
-
-export const STUCK_SPEED_FRACTION = 0.3;
-export const STUCK_PATIENCE_TICKS = 90; // 1.5 s @ 60 Hz
-export const STUCK_RAMP_TICKS = 120; // 2 s @ 60 Hz
-export const STUCK_BOOST_MAX = 1;
-export const STUCK_SOCIAL_FORCE_MIN = 0;
-export const STUCK_JITTER_MAX_RAD = Math.PI / 8; // 22.5 deg
-
-// ---------------------------------------------------------------------------
 // Crowd-pressure exposure model. Relative risk indicator only - see plan's
 // "고압력 위험 노출" framing, not a real injury/fatality predictor.
+//
+// Measured from body *overlap* (compression depth), not proximity: under
+// the vision-heuristic steering model a calm standing crowd naturally
+// packs to touching distance (gap ≈ 0), which is harmless. Danger begins
+// when driving forces squeeze bodies into each other - exactly the regime
+// where the contact springs in socialForce.ts carry sustained load.
 // ---------------------------------------------------------------------------
 
-export const PRESSURE_CONTACT_RANGE_PX = 0.15; // m (was 3 px)
+/** Overlap depth at which one contact counts as a full unit of crushing
+ * compression (spring accel at this depth: SFM_K_BODY × 0.05 = 35 m/s²). */
+export const PRESSURE_OVERLAP_FULL_M = 0.05;
 export const PRESSURE_DEATH_THRESHOLD = 3.5; // dimensionless compression ratio, unchanged
 export const PRESSURE_DEATH_SECONDS = 3;
 export const PRESSURE_RECOVERY_RATE = 3;
