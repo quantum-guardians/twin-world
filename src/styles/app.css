@@ -184,6 +184,21 @@ body {
   font-size: 0.8rem;
 }
 
+/* Risk banner between the toolbars and the scene - the run is watched in 3D,
+   so a crush has to announce itself rather than wait to be read in the
+   status line. */
+.sim-alert {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem 1rem;
+  padding: 0.5rem 1rem;
+  border-bottom: 1px solid var(--line);
+  background: var(--danger-wash);
+  color: var(--danger);
+  font-size: 0.82rem;
+  font-weight: 600;
+}
+
 /* Form controls */
 
 .sim-field input,

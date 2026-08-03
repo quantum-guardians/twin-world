@@ -12,6 +12,7 @@ import { SimulationControls } from "./SimulationControls";
 import { ScenarioInput } from "./ScenarioInput";
 import { CameraModeToolbar, type CameraMode } from "./CameraModeToolbar";
 import { DEFAULT_AGENT_COUNT } from "../../domain/simPresets";
+import { simulationAlerts } from "../../simulation/alerts";
 
 export interface VenueSimulationViewProps {
   venue: Venue;
@@ -26,6 +27,10 @@ export function VenueSimulationView({ venue }: VenueSimulationViewProps) {
   const [urgency, setUrgency] = useState(0);
 
   const { simulation, controls } = useVenueSimulation(venue, { population, seed, urgency });
+  const counts = simulation.counts();
+  const metrics = simulation.metrics();
+  const bottleneckCount = simulation.bottleneckCorridorIds.size;
+  const alerts = simulationAlerts(counts, metrics.highPressureExposed, bottleneckCount);
   const pov = useAgentPovSelection(simulation);
   const [cameraMode, setCameraMode] = useState<CameraMode>("overview");
   const [flySpeedScale, setFlySpeedScale] = useState(1);
@@ -50,9 +55,9 @@ export function VenueSimulationView({ venue }: VenueSimulationViewProps) {
         urgency={urgency}
         onChangeUrgency={setUrgency}
         onReset={controls.reset}
-        counts={simulation.counts()}
-        metrics={simulation.metrics()}
-        bottleneckCount={simulation.bottleneckCorridorIds.size}
+        counts={counts}
+        metrics={metrics}
+        bottleneckCount={bottleneckCount}
         elapsedSeconds={simulation.elapsedSeconds}
       />
       <CameraModeToolbar
@@ -73,6 +78,13 @@ export function VenueSimulationView({ venue }: VenueSimulationViewProps) {
         flySpeedScale={flySpeedScale}
         onChangeFlySpeedScale={setFlySpeedScale}
       />
+      {alerts.length > 0 && (
+        <div className="sim-alert" role="alert">
+          {alerts.map((alert) => (
+            <span key={alert}>{alert}</span>
+          ))}
+        </div>
+      )}
       <VenueScene venue={venue} disableOrbitControls={cameraMode !== "overview"} fov={cameraMode === "overview" ? 50 : 75}>
         <DensityHeatmap simulation={simulation} />
         <Agents simulation={simulation} capacity={population} />
