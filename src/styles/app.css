@@ -13,36 +13,36 @@
 :root {
   color-scheme: light;
 
-  /* Surfaces, from the page backdrop up to raised panels. Neutral and
-     slightly cool, matching the 3D scene's pale field. */
-  --paper: #f2f4f5;
-  --surface: #ffffff;
-  --surface-sunken: #e8eaec;
-  --surface-hover: #f6f8f9;
+  /* Surfaces, from the page backdrop up to raised panels. Warm ivory rather
+     than white, matching the 3D scene's pale field. */
+  --paper: #f0eee6;
+  --surface: #faf9f5;
+  --surface-sunken: #e7e4d9;
+  --surface-hover: #f5f3ec;
 
   /* Hairlines. --line-strong is for borders that carry structure (panel
      edges), --line for incidental separators. */
-  --line: #dee1e4;
-  --line-strong: #c6cbd1;
+  --line: #e2ded1;
+  --line-strong: #cdc7b6;
 
   /* Text. --ink-muted passes AA on --paper (5.9:1); --ink-faint is reserved
      for non-essential hints that repeat information available elsewhere. */
-  --ink: #171b21;
-  --ink-muted: #525b66;
-  --ink-faint: #78828f;
+  --ink: #1f1e1c;
+  --ink-muted: #565248;
+  --ink-faint: #837d70;
 
   /* One accent, used only for the active/primary state so it always means
-     "this is the thing you selected". Blue on purpose: the congestion ramp
-     owns green through red, and the chrome must never be mistaken for a
-     reading. */
-  --accent: #2450d8;
-  --accent-hover: #1c40b4;
+     "this is the thing you selected". */
+  --accent: #d97757;
+  --accent-hover: #c25f3e;
   --accent-ink: #ffffff;
-  --accent-wash: #e4eafb;
+  --accent-wash: #f7e4db;
 
-  --danger: #c02622;
-  --danger-wash: #fceceb;
-  --warn: #9a5b06;
+  /* Deeper and colder than the accent so a destructive control never reads
+     as merely selected. */
+  --danger: #a8231d;
+  --danger-wash: #f8e6e4;
+  --warn: #8a5406;
 
   --radius-sm: 6px;
   --radius: 10px;
