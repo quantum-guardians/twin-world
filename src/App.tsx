@@ -1,6 +1,8 @@
 import { useState } from "react";
 import type { Venue } from "./domain/types";
 import { createBusanFestivalStreetPreset } from "./domain/busanPreset";
+import { createFestivalStreetPreset } from "./domain/festivalPreset";
+import { createFestivalStreetMr2sVenue } from "./domain/festivalPresetMr2s";
 import { VenuePicker } from "./components/graph/VenuePicker";
 import { VenueGraphEditor } from "./components/graph/VenueGraphEditor";
 import { VenueSimulationView } from "./components/simulation/VenueSimulationView";
@@ -78,7 +80,17 @@ function App() {
       <main className="app-main">
         {!venue && (
           <VenuePicker
-            onSelectPreset={() => setVenue(createBusanFestivalStreetPreset())}
+            onSelectFestivalPreset={() => {
+              // Seed the comparison from the recorded MR2S orientation so
+              // "결과 비교" works on the first click. Re-running "MR2S
+              // 일방통행 최적화" in the editor overwrites this with a live
+              // result, which will differ - the backend is a simulated
+              // annealer and does not return the same orientation twice.
+              const preset = createFestivalStreetPreset();
+              setVenue(preset);
+              setComparison({ baseline: preset, optimized: createFestivalStreetMr2sVenue() });
+            }}
+            onSelectBusanPreset={() => setVenue(createBusanFestivalStreetPreset())}
             onStartBlank={() => setVenue(emptyVenue())}
           />
         )}

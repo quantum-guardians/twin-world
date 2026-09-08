@@ -61,25 +61,90 @@ describe("shortestPath", () => {
   });
 });
 
+/** entrance + destination + exit, all distinct, so each scenario mode's
+ * pools are unambiguous. */
+function fullVenue(): Venue {
+  return {
+    id: "v2",
+    name: "full",
+    region: "test",
+    scaleMetersPerUnit: 1,
+    isSyntheticLayout: true,
+    nodes: [
+      { id: "gate", x: 0, y: 0, kind: "entrance" },
+      { id: "plaza", x: 10, y: 0, kind: "destination" },
+      { id: "door", x: 20, y: 0, kind: "exit" },
+    ],
+    edges: [
+      { id: "e1", fromNodeId: "gate", toNodeId: "plaza", width: 4, direction: "bidirectional" },
+      { id: "e2", fromNodeId: "plaza", toNodeId: "door", width: 4, direction: "bidirectional" },
+    ],
+  };
+}
+
+function allNormalVenue(): Venue {
+  return {
+    ...fullVenue(),
+    nodes: [
+      { id: "x", x: 0, y: 0, kind: "normal" },
+      { id: "y", x: 10, y: 0, kind: "normal" },
+    ],
+  };
+}
+
 describe("pickSpawnTargetPair", () => {
-  it("prefers an entrance node as the start and a destination/exit node as the target", () => {
-    const venue = lineVenue();
-    const rng = () => 0; // deterministic: always picks pool[0]
-    const pair = pickSpawnTargetPair(venue, rng);
-    expect(pair).toEqual(["a", "c"]);
+  it("evacuation mode spawns from entrance/destination and always targets the exit node", () => {
+    const venue = fullVenue();
+    const rng = mulberry32(1);
+    for (let i = 0; i < 50; i++) {
+      const pair = pickSpawnTargetPair(venue, "evacuation", rng);
+      expect(pair).not.toBeNull();
+      const [start, target] = pair!;
+      expect(["gate", "plaza"]).toContain(start);
+      expect(target).toBe("door");
+    }
   });
 
-  it("falls back to any node when no entrance/destination exists", () => {
-    const venue: Venue = {
-      ...lineVenue(),
-      nodes: [
-        { id: "x", x: 0, y: 0, kind: "normal" },
-        { id: "y", x: 10, y: 0, kind: "normal" },
-      ],
-    };
-    const pair = pickSpawnTargetPair(venue, mulberry32(9));
+  it("arrival mode spawns from entrance and always targets the destination node, never the exit", () => {
+    const venue = fullVenue();
+    const rng = mulberry32(2);
+    for (let i = 0; i < 50; i++) {
+      const pair = pickSpawnTargetPair(venue, "arrival", rng);
+      expect(pair).not.toBeNull();
+      const [start, target] = pair!;
+      expect(start).toBe("gate");
+      expect(target).toBe("plaza");
+      expect(target).not.toBe("door");
+    }
+  });
+
+  it("free mode never returns the same start and target", () => {
+    const venue = fullVenue();
+    const rng = mulberry32(3);
+    for (let i = 0; i < 50; i++) {
+      const pair = pickSpawnTargetPair(venue, "free", rng);
+      expect(pair).not.toBeNull();
+      expect(pair![0]).not.toBe(pair![1]);
+    }
+  });
+
+  it("evacuation falls back to any node when the venue has no entrance/destination/exit", () => {
+    const pair = pickSpawnTargetPair(allNormalVenue(), "evacuation", mulberry32(9));
     expect(pair).not.toBeNull();
     expect(pair![0]).not.toBe(pair![1]);
+  });
+
+  it("arrival falls back to any node when the venue has no entrance/destination", () => {
+    const pair = pickSpawnTargetPair(allNormalVenue(), "arrival", mulberry32(11));
+    expect(pair).not.toBeNull();
+    expect(pair![0]).not.toBe(pair![1]);
+  });
+
+  it("free mode's pools are already 'any node', so no fallback branch applies", () => {
+    const pair = pickSpawnTargetPair(allNormalVenue(), "free", mulberry32(13));
+    expect(pair).not.toBeNull();
+    expect(["x", "y"]).toContain(pair![0]);
+    expect(["x", "y"]).toContain(pair![1]);
   });
 });
 
@@ -88,7 +153,10 @@ describe("spawnAgent", () => {
     const venue = lineVenue();
     const world = createSfmWorld();
     const adjacency = buildAdjacency(venue);
-    const agent = spawnAgent("a1", { world, venue, adjacency, rng: () => 0.42 });
+    // Arrival mode: entrance-only start pool, destination-only target pool
+    // - with only one candidate in each, rng 0.42 deterministically picks
+    // "a" then "c" regardless of pool-index arithmetic.
+    const agent = spawnAgent("a1", { world, venue, adjacency, mode: "arrival", elapsedSeconds: 0, rng: () => 0.42 });
     expect(agent).not.toBeNull();
     expect(agent!.startNodeId).toBe("a");
     expect(agent!.targetNodeId).toBe("c");
@@ -104,14 +172,16 @@ describe("spawnAgent", () => {
     };
     const world = createSfmWorld();
     const adjacency = buildAdjacency(venue);
-    expect(spawnAgent("a1", { world, venue, adjacency, rng: () => 0.1 })).toBeNull();
+    expect(
+      spawnAgent("a1", { world, venue, adjacency, mode: "arrival", elapsedSeconds: 0, rng: () => 0.1 })
+    ).toBeNull();
   });
 
   it("gives every spawned body the uniform agent radius", () => {
     const venue = lineVenue();
     const world = createSfmWorld();
     const adjacency = buildAdjacency(venue);
-    const agent = spawnAgent("a1", { world, venue, adjacency, rng: () => 0.9 });
+    const agent = spawnAgent("a1", { world, venue, adjacency, mode: "arrival", elapsedSeconds: 0, rng: () => 0.9 });
     expect(agent).not.toBeNull();
     expect(world.agents.get("a1")!.radius).toBe(AGENT_BODY_RADIUS_M);
   });
@@ -120,8 +190,31 @@ describe("spawnAgent", () => {
     const venue = lineVenue();
     const world = createSfmWorld();
     const adjacency = buildAdjacency(venue);
-    const agent = spawnAgent("a1", { world, venue, adjacency, rng: () => 0.9 })!;
+    const agent = spawnAgent("a1", {
+      world,
+      venue,
+      adjacency,
+      mode: "arrival",
+      elapsedSeconds: 0,
+      rng: () => 0.9,
+    })!;
     expect(agent.hairLengthM).toBeGreaterThanOrEqual(AGENT_RENDER_HEIGHT_M * AGENT_HAIR_LENGTH_MIN_FRACTION);
     expect(agent.hairLengthM).toBeLessThanOrEqual(AGENT_RENDER_HEIGHT_M * AGENT_HAIR_LENGTH_MAX_FRACTION);
+  });
+
+  it("stamps spawnedAtSeconds from the caller-supplied simulation clock", () => {
+    const venue = lineVenue();
+    const world = createSfmWorld();
+    const adjacency = buildAdjacency(venue);
+    const agent = spawnAgent("a1", {
+      world,
+      venue,
+      adjacency,
+      mode: "arrival",
+      elapsedSeconds: 12.5,
+      rng: () => 0.9,
+    });
+    expect(agent).not.toBeNull();
+    expect(agent!.spawnedAtSeconds).toBe(12.5);
   });
 });

@@ -15,6 +15,13 @@ export interface ArrivalMetrics {
    * arrival order) reached its destination; null until that many have
    * actually arrived. */
   evacuationP95Seconds: number | null;
+  /** Mean seconds each arrived agent spent travelling - its own arrival
+   * time minus its own spawn time - across agents that have arrived. null
+   * until at least one has arrived. */
+  meanTravelSeconds: number | null;
+  /** Median of the same population. null until at least one agent has
+   * arrived. */
+  medianTravelSeconds: number | null;
 }
 
 /** Aggregates per-agent state into the plan's headline metrics table
@@ -27,11 +34,15 @@ export function computeArrivalMetrics(agents: AgentRuntimeState[]): ArrivalMetri
   let moving = 0;
   let highPressureExposed = 0;
   const arrivalTimes: number[] = [];
+  const travelTimes: number[] = [];
 
   for (const agent of agents) {
     if (agent.state === "arrived") {
       arrived++;
       if (agent.arrivedAtSeconds !== undefined) arrivalTimes.push(agent.arrivedAtSeconds);
+      if (agent.arrivedAtSeconds !== undefined && agent.spawnedAtSeconds !== undefined) {
+        travelTimes.push(agent.arrivedAtSeconds - agent.spawnedAtSeconds);
+      }
     } else if (agent.state === "moving") {
       moving++;
     }
@@ -43,6 +54,16 @@ export function computeArrivalMetrics(agents: AgentRuntimeState[]): ArrivalMetri
   const evacuationP95Seconds =
     totalSpawned > 0 && arrivalTimes.length >= requiredForP95 ? arrivalTimes[requiredForP95 - 1] : null;
 
+  travelTimes.sort((a, b) => a - b);
+  const meanTravelSeconds =
+    travelTimes.length > 0 ? travelTimes.reduce((sum, t) => sum + t, 0) / travelTimes.length : null;
+  // Even-sized sample: median is the mean of the two middle values (the
+  // odd case collapses to the same formula since both indices coincide).
+  const medianTravelSeconds =
+    travelTimes.length > 0
+      ? (travelTimes[Math.floor((travelTimes.length - 1) / 2)] + travelTimes[Math.ceil((travelTimes.length - 1) / 2)]) / 2
+      : null;
+
   return {
     totalSpawned,
     arrived,
@@ -50,6 +71,8 @@ export function computeArrivalMetrics(agents: AgentRuntimeState[]): ArrivalMetri
     highPressureExposed,
     arrivalRatePercent: totalSpawned > 0 ? (arrived / totalSpawned) * 100 : 0,
     evacuationP95Seconds,
+    meanTravelSeconds,
+    medianTravelSeconds,
   };
 }
 

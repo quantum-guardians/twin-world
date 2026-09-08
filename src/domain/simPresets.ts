@@ -27,6 +27,40 @@ export const AGENT_MAX_SPEED = 1.25; // m/s (was 25 px/s)
 export const ARRIVAL_RADIUS = 0.5; // m (was 10 px)
 
 export const DEFAULT_AGENT_COUNT = 150;
+
+/**
+ * The scenario every simulation screen opens on. Not a round number
+ * picked for looks - these are the settings where the MR2S orientation
+ * measurably beats leaving every street two-way on the festival preset,
+ * confirmed over five seeds with scripts/confirm-happy-case.ts
+ * (arrival scenario, 1200 simulated seconds, mean over seeds 1-5):
+ *
+ *              생존      도착    사망 (per seed)
+ *   기준안     87.4%    63.3%    37.8  (22/20/35/39/73)
+ *   Robbins    63.1%    15.3%   110.6  (122/93/132/117/89)
+ *   MR2S       94.3%    74.7%    17.2  (6/28/18/3/31)
+ *
+ * MR2S more than halves deaths against the two-way baseline and is better
+ * on four of the five seeds; seed 2 goes the other way (20 vs 28), which
+ * is the honest spread of a stochastic crowd model, not a tuning failure.
+ *
+ * Robbins matters here: it is a valid strongly connected one-way system
+ * built with no optimization, and it is far worse than leaving the streets
+ * two-way. Making streets one-way is not what saves people - choosing
+ * which way they run is.
+ *
+ * Below roughly 150 agents the venue is empty enough that no one is ever
+ * blocked, and one-way can only lose, because it always pays a detour
+ * first: MR2S routes here are 18-50% longer than the two-way shortest
+ * path. Above ~400 every layout collapses. The demo has to sit in the
+ * band where counterflow costs more than the detour.
+ */
+export const DEMO_SCENARIO_POPULATION = 300;
+export const DEMO_SCENARIO_URGENCY = 0.4;
+/** Typed as a literal rather than as ScenarioMode: that type lives in
+ * simulation/agents.ts, and domain/ must not import from simulation/. The
+ * literal still narrows to ScenarioMode at every use site. */
+export const DEMO_SCENARIO_MODE = "arrival" as const;
 export const ADD_AGENTS_BATCH_SIZE = 5;
 export const ADD_AGENTS_BATCH_INTERVAL_MS = 200;
 export const RESPAWN_BATCH_SIZE = 3;
