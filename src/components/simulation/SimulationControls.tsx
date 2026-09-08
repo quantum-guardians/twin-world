@@ -1,7 +1,15 @@
 import type { ArrivalMetrics } from "../../simulation/metrics";
 import type { ScenarioMode } from "../../simulation/engine";
 
-const PLAYBACK_RATES = [0.25, 0.5, 1, 2, 4];
+/** Up to 12x, which is the ceiling the render loop can reach at all:
+ * MAX_STEPS_PER_FRAME is 12 fixed ticks and a display refreshes 60 times a
+ * second, so 720 ticks/s is the most the loop will ever run. Raising that
+ * cap would not help - it only decides how the same ticks are spread over
+ * frames, and measured throughput on this machine tops out at 726 ticks/s
+ * (12.1x) with three simulations at 80 agents anyway. At heavier settings
+ * the machine binds first, so the achieved rate is shown next to the
+ * selection rather than letting the dial imply a speed nothing delivers. */
+const PLAYBACK_RATES = [0.25, 0.5, 1, 2, 4, 8, 12];
 
 const SCENARIO_MODE_OPTIONS: { mode: ScenarioMode; label: string }[] = [
   { mode: "evacuation", label: "대피 모드" },
@@ -22,6 +30,9 @@ export interface SimulationControlsProps {
   onTogglePlaying: () => void;
   playbackRate: number;
   onChangePlaybackRate: (rate: number) => void;
+  /** Multiplier the loop is actually achieving, measured over the last
+   * half second. Shown when it falls meaningfully short of the selection. */
+  achievedRate?: number;
   population: number;
   onChangePopulation: (population: number) => void;
   /** Rushing/panic level in [0, 1]; 0 = calm walking. */
@@ -58,6 +69,7 @@ export function SimulationControls({
   onTogglePlaying,
   playbackRate,
   onChangePlaybackRate,
+  achievedRate,
   population,
   onChangePopulation,
   urgency,
@@ -131,6 +143,11 @@ export function SimulationControls({
             </option>
           ))}
         </select>
+        {playing && achievedRate !== undefined && achievedRate < playbackRate * 0.9 && (
+          <span className="sim-hint" title="선택한 배속을 기계가 따라가지 못해 실제로 나오는 배속입니다">
+            실효 {achievedRate.toFixed(1)}x
+          </span>
+        )}
       </label>
       <button type="button" className="toggle-button" disabled={skipping} onClick={onReset}>
         초기화

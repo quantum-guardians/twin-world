@@ -55,6 +55,7 @@ export function VenueSimulationView({ venue }: VenueSimulationViewProps) {
         playing={controls.playing}
         onTogglePlaying={() => controls.setPlaying(!controls.playing)}
         playbackRate={controls.playbackRate}
+        achievedRate={controls.achievedRate}
         onChangePlaybackRate={controls.setPlaybackRate}
         population={population}
         onChangePopulation={setPopulation}
