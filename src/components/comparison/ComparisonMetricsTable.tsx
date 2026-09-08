@@ -4,6 +4,13 @@ export interface ComparisonMetricsTableProps {
   baseline: VenueSimulation;
   robbins: VenueSimulation;
   optimized: VenueSimulation;
+  /** APSP sum over every ordered node pair for each orientation, in meters;
+   * null when that orientation is not strongly connected. Passed in rather
+   * than computed here because it depends only on the venue geometry, not
+   * on how far the run has got. */
+  routeLengthBaseline: number | null;
+  routeLengthRobbins: number | null;
+  routeLengthOptimized: number | null;
 }
 
 function formatSeconds(value: number | null): string {
@@ -18,6 +25,23 @@ function deltaLabel(base: number, opt: number, lowerIsBetter: boolean): string {
   return `${sign}${diff.toFixed(1)} ${better ? "(개선)" : "(악화)"}`;
 }
 
+function formatRouteLength(sum: number | null): string {
+  // null means the orientation isn't strongly connected (a bridge edge
+  // pointed the wrong way cuts one side off from the other) - render that
+  // as "연결 불가" rather than a number, since 0 would read as "no distance
+  // at all" instead of "unreachable".
+  return sum === null ? "연결 불가" : `${Math.round(sum).toLocaleString("ko-KR")}m`;
+}
+
+function routeLengthDelta(base: number | null, opt: number | null): string {
+  if (base === null || opt === null || base <= 0) return "연결 불가";
+  const percent = ((opt - base) / base) * 100;
+  // Longer routes are the price of one-way, not a defect - label the
+  // direction plainly and let the Robbins column carry the comparison
+  // that matters.
+  return `${percent > 0 ? "+" : ""}${percent.toFixed(1)}%`;
+}
+
 function secondsDelta(base: number | null, opt: number | null): string {
   return base !== null && opt !== null ? deltaLabel(base, opt, true) : "측정 중";
 }
@@ -29,7 +53,14 @@ function secondsDelta(base: number | null, opt: number | null): string {
  * responsibility - see ComparisonView). The 변화 column compares MR2S
  * against 기준안 specifically - Robbins is shown for context (the fair
  * one-way baseline) but isn't itself the thing MR2S is scored against. */
-export function ComparisonMetricsTable({ baseline, robbins, optimized }: ComparisonMetricsTableProps) {
+export function ComparisonMetricsTable({
+  baseline,
+  robbins,
+  optimized,
+  routeLengthBaseline,
+  routeLengthRobbins,
+  routeLengthOptimized,
+}: ComparisonMetricsTableProps) {
   const baseMetrics = baseline.metrics();
   const robbinsMetrics = robbins.metrics();
   const optMetrics = optimized.metrics();
@@ -79,6 +110,18 @@ export function ComparisonMetricsTable({ baseline, robbins, optimized }: Compari
       robbins: `${robbinsMetrics.highPressureExposed}명`,
       opt: `${optMetrics.highPressureExposed}명`,
       delta: deltaLabel(baseMetrics.highPressureExposed, optMetrics.highPressureExposed, true),
+    },
+    {
+      // Not a simulation result: the APSP sum is a property of the graph
+      // and its directions, fixed before anyone walks anywhere. It sits in
+      // the same table because it is the reason the rows above come out the
+      // way they do - one-way always lengthens routes, and the question is
+      // whether it buys back more than it costs.
+      label: "경로 길이 합 (APSP)",
+      base: formatRouteLength(routeLengthBaseline),
+      robbins: formatRouteLength(routeLengthRobbins),
+      opt: formatRouteLength(routeLengthOptimized),
+      delta: routeLengthDelta(routeLengthBaseline, routeLengthOptimized),
     },
   ];
 

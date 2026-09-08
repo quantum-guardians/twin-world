@@ -17,14 +17,6 @@ export interface ComparisonViewProps {
   optimizedVenue: Venue;
 }
 
-function formatRouteLength(sum: number | null): string {
-  // null means the orientation isn't strongly connected (a bridge edge
-  // pointed the wrong way cuts one side off from the other) - render that
-  // as "연결 불가" rather than a number, since 0 would read as "no
-  // distance at all" instead of "unreachable".
-  return sum === null ? "연결 불가" : `${sum.toFixed(0)}m`;
-}
-
 /**
  * Runs the baseline (all-bidirectional), Robbins (one-way, no
  * optimization) and MR2S-optimized venues on one shared clock (plan
@@ -82,30 +74,24 @@ export function ComparisonView({ baselineVenue, optimizedVenue }: ComparisonView
   const routeLengthRobbins = useMemo(() => directedApspSum(robbinsVenue), [robbinsVenue]);
   const routeLengthOptimized = useMemo(() => directedApspSum(optimizedVenue), [optimizedVenue]);
 
-  const mr2sVsRobbinsPercent =
-    routeLengthRobbins !== null && routeLengthOptimized !== null && routeLengthRobbins > 0
-      ? ((routeLengthRobbins - routeLengthOptimized) / routeLengthRobbins) * 100
-      : null;
-
   return (
     <div className="sim-view">
       <div className="compare-toolbar">
-        <div className="compare-route-lengths">
-          <span className="compare-route-lengths-label">경로 길이 합 (APSP, 그래프 측정값)</span>
-          <span>기준안(양방향) {formatRouteLength(routeLengthBaseline)}</span>
-          <span>Robbins {formatRouteLength(routeLengthRobbins)}</span>
-          <span>MR2S {formatRouteLength(routeLengthOptimized)}</span>
-          {mr2sVsRobbinsPercent !== null && mr2sVsRobbinsPercent > 0 && (
-            <span>MR2S가 Robbins보다 {mr2sVsRobbinsPercent.toFixed(1)}% 짧음</span>
-          )}
-        </div>
-        <ComparisonMetricsTable baseline={baseline} robbins={robbins} optimized={optimized} />
+        <ComparisonMetricsTable
+          baseline={baseline}
+          robbins={robbins}
+          optimized={optimized}
+          routeLengthBaseline={routeLengthBaseline}
+          routeLengthRobbins={routeLengthRobbins}
+          routeLengthOptimized={routeLengthOptimized}
+        />
       </div>
       <ReportPanel venue={baselineVenue} population={population} baseline={baseline} robbins={robbins} optimized={optimized} />
       <SimulationControls
         playing={controls.playing}
         onTogglePlaying={() => controls.setPlaying(!controls.playing)}
         playbackRate={controls.playbackRate}
+        achievedRate={controls.achievedRate}
         onChangePlaybackRate={controls.setPlaybackRate}
         population={population}
         scenarioMode={scenarioMode}

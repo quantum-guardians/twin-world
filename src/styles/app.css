@@ -232,16 +232,21 @@ body {
   box-shadow: 0 0 0 3px var(--accent-wash);
 }
 
+/* Achieved playback rate, shown beside the 배속 select only when the loop
+   is falling short of the selection. Muted and tabular so a number that
+   changes every half second does not pull the eye off the metrics. */
+.sim-hint {
+  color: var(--ink-muted);
+  font-size: 0.75rem;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
 .sim-status {
   color: var(--ink-muted);
   font-size: 0.8rem;
   font-variant-numeric: tabular-nums;
   margin-left: auto;
-}
-
-.compare-tabs {
-  display: flex;
-  gap: 0.5rem;
 }
 
 .comparison-table {
@@ -260,24 +265,6 @@ body {
 .comparison-table th {
   color: var(--ink-muted);
   font-weight: 500;
-}
-
-/* Static graph-measure readout (APSP route-length sums) shown above
-   ComparisonMetricsTable - a different kind of number from the simulated
-   metrics below it, so it gets its own row rather than blending into
-   .compare-toolbar's flex-wrap layout. */
-.compare-route-lengths {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: baseline;
-  gap: 0.3rem 1rem;
-  font-size: 0.8rem;
-  font-variant-numeric: tabular-nums;
-  color: var(--ink);
-}
-
-.compare-route-lengths-label {
-  color: var(--ink-muted);
 }
 
 /* Three simultaneously-rendered scenes (기준안 / Robbins / MR2S) side by
