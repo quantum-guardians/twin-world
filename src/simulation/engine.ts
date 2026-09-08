@@ -51,6 +51,10 @@ export class VenueSimulation {
   readonly corridors: Corridor[];
   readonly hubs: JunctionHub[];
   readonly adjacency: Map<string, AdjacencyEntry[]>;
+  /** Junction hub radius per node, handed to route-finding so a waypoint
+   * counts as reached when the agent enters the junction rather than when
+   * it touches the node center - see AgentRuntimeState.waypointRadii. */
+  readonly hubRadiusByNode: Map<string, number>;
   readonly agents: AgentRuntimeState[] = [];
   readonly lastValidPositions = new Map<string, { x: number; y: number }>();
 
@@ -75,6 +79,7 @@ export class VenueSimulation {
     this.hubs = hubs;
     rebuildWalls(this.world, corridors);
     this.adjacency = buildAdjacency(venue);
+    this.hubRadiusByNode = new Map(hubs.map((hub) => [hub.nodeId, hub.radius]));
     this.rng = mulberry32(options.seed);
     this.urgency = Math.max(0, Math.min(1, options.urgency ?? 0));
     this.scenarioMode = options.scenarioMode ?? "evacuation";
@@ -137,7 +142,7 @@ export class VenueSimulation {
     this.tickCount += 1;
 
     if (this.tickCount % 60 === 0) {
-      rerouteStrayAgents(this.agents, this.world, this.venue, this.adjacency);
+      rerouteStrayAgents(this.agents, this.world, this.venue, this.adjacency, this.hubRadiusByNode);
     }
 
     for (const agent of this.agents) {

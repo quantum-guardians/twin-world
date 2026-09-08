@@ -186,6 +186,16 @@ export function pickSpawnTargetPair(
 export interface AgentRuntimeState {
   id: string;
   waypoints: Point[];
+  /** Acceptance radius for each waypoint, from that node's junction hub
+   * (corridors.ts sizes a hub to the widest street meeting there). A body
+   * is 3 m across, so at a busy junction the bodies already standing on
+   * the node center make it physically impossible for the next agent to
+   * bring its own center within a fixed 2 m of that center - it queues at
+   * the hub rim instead and the waypoint never advances, which deadlocks
+   * the whole approach. Reaching a junction means entering it, so the hub
+   * radius is the honest test. Empty when the caller supplied no hub
+   * geometry, in which case the fixed radius is used. */
+  waypointRadii?: number[];
   waypointIndex: number;
   startNodeId: string;
   targetNodeId: string;
@@ -227,6 +237,10 @@ export interface SpawnAgentDeps {
   adjacency: Map<string, AdjacencyEntry[]>;
   /** Which scenario this agent's spawn/target pair is drawn from. */
   mode: ScenarioMode;
+  /** Junction hub radius per node id, from buildCorridors(). Optional: a
+   * caller without corridor geometry (most unit tests) falls back to
+   * ARRIVAL_RADIUS for every waypoint. */
+  hubRadiusByNode?: Map<string, number>;
   /** Simulation clock at the moment of spawn; spawnAgent has no clock of
    * its own. Stamped onto the returned agent as spawnedAtSeconds. */
   elapsedSeconds: number;
@@ -251,6 +265,17 @@ function isSpawnPositionFree(world: SfmWorld, position: Point, radius: number): 
   return true;
 }
 
+/** Acceptance radius per route node: the node's junction hub radius, never
+ * smaller than the fixed ARRIVAL_RADIUS. Returns undefined when no hub
+ * geometry was supplied, so the caller keeps the fixed radius. */
+function waypointRadiiFor(
+  routeNodeIds: string[],
+  hubRadiusByNode: Map<string, number> | undefined
+): number[] | undefined {
+  if (!hubRadiusByNode) return undefined;
+  return routeNodeIds.map((nodeId) => Math.max(ARRIVAL_RADIUS, hubRadiusByNode.get(nodeId) ?? ARRIVAL_RADIUS));
+}
+
 /**
  * Spawns one agent at a free spot near an entrance node, or returns null
  * when no route exists or every candidate spot is currently occupied.
@@ -259,7 +284,7 @@ function isSpawnPositionFree(world: SfmWorld, position: Point, radius: number): 
  * materialize on top of the crowd inside.
  */
 export function spawnAgent(id: string, deps: SpawnAgentDeps): AgentRuntimeState | null {
-  const { world, venue, adjacency, mode, elapsedSeconds, rng = Math.random } = deps;
+  const { world, venue, adjacency, mode, elapsedSeconds, hubRadiusByNode, rng = Math.random } = deps;
   const nodePositions = new Map(venue.nodes.map((n) => [n.id, { x: n.x, y: n.y }]));
 
   let startPos: Point | null = null;
@@ -307,8 +332,10 @@ export function spawnAgent(id: string, deps: SpawnAgentDeps): AgentRuntimeState 
   }
   if (!startPos || !path || !start || !target) return null;
 
-  const waypoints = path.map((nodeId) => nodePositions.get(nodeId)).filter((p): p is Point => p !== undefined);
+  const routeNodeIds = path.filter((nodeId) => nodePositions.has(nodeId));
+  const waypoints = routeNodeIds.map((nodeId) => nodePositions.get(nodeId)!);
   if (waypoints.length === 0) return null;
+  const waypointRadii = waypointRadiiFor(routeNodeIds, hubRadiusByNode);
 
   addAgent(world, id, startPos.x, startPos.y, AGENT_BODY_RADIUS_M);
   deps.lastValidPositions?.set(id, { x: startPos.x, y: startPos.y });
@@ -322,6 +349,7 @@ export function spawnAgent(id: string, deps: SpawnAgentDeps): AgentRuntimeState 
   return {
     id,
     waypoints,
+    waypointRadii,
     waypointIndex: Math.min(1, waypoints.length - 1),
     startNodeId: start,
     targetNodeId: target,
@@ -421,7 +449,8 @@ export function computeDesiredDirections(
     // Arrival is measured from the body's EDGE (dist - radius): with
     // enlarged colliders a 1.6 m body could never bring its center within
     // the old fixed disc once anyone else stands near the node.
-    if (dist < arrivalRadius + sfmAgent.radius || passedWaypoint) {
+    const acceptanceRadius = agent.waypointRadii?.[agent.waypointIndex] ?? arrivalRadius;
+    if (dist < acceptanceRadius + sfmAgent.radius || passedWaypoint) {
       if (agent.waypointIndex >= agent.waypoints.length - 1) {
         // Reached the destination/exit: the body leaves the venue floor so
         // it stops blocking (and pressing on) the crowd still flowing in.
@@ -541,7 +570,8 @@ export function rerouteStrayAgents(
   agents: AgentRuntimeState[],
   world: SfmWorld,
   venue: Venue,
-  adjacency: Map<string, AdjacencyEntry[]>
+  adjacency: Map<string, AdjacencyEntry[]>,
+  hubRadiusByNode?: Map<string, number>
 ): number {
   const nodePositions = new Map(venue.nodes.map((n) => [n.id, { x: n.x, y: n.y }]));
   let rerouted = 0;
@@ -576,9 +606,11 @@ export function rerouteStrayAgents(
     for (const candidate of candidates) {
       const path = shortestPath(adjacency, candidate.id, agent.targetNodeId);
       if (!path) continue;
-      const waypoints = path.map((id) => nodePositions.get(id)).filter((p): p is Point => p !== undefined);
+      const routeNodeIds = path.filter((id) => nodePositions.has(id));
+      const waypoints = routeNodeIds.map((id) => nodePositions.get(id)!);
       if (waypoints.length === 0) continue;
       agent.waypoints = waypoints;
+      agent.waypointRadii = waypointRadiiFor(routeNodeIds, hubRadiusByNode);
       agent.waypointIndex = 0;
       agent.cachedMotion = undefined;
       agent.cachedMotionWaypointIndex = undefined;
