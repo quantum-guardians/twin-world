@@ -7,6 +7,7 @@ export interface ReportPanelProps {
   venue: Venue;
   population: number;
   baseline: VenueSimulation;
+  robbins: VenueSimulation;
   optimized: VenueSimulation;
 }
 
@@ -17,14 +18,34 @@ function toRunMetrics(sim: VenueSimulation) {
     evacuationP95Seconds: m.evacuationP95Seconds,
     highPressureExposed: m.highPressureExposed,
     bottleneckCount: sim.bottleneckCorridorIds.size,
+    dead: sim.counts().dead,
   };
 }
 
-function reportToMarkdown(venueName: string, report: ReportResult): string {
+function formatMetricsRow(label: string, sim: VenueSimulation): string {
+  const m = toRunMetrics(sim);
+  const p95 = m.evacuationP95Seconds !== null ? `${m.evacuationP95Seconds.toFixed(1)}s` : "측정 중";
+  return `| ${label} | ${m.arrivalRatePercent.toFixed(0)}% | ${m.dead}명 | ${p95} | ${m.highPressureExposed}명 | ${m.bottleneckCount} |`;
+}
+
+function reportToMarkdown(
+  venueName: string,
+  report: ReportResult,
+  baseline: VenueSimulation,
+  robbins: VenueSimulation,
+  optimized: VenueSimulation
+): string {
   const lines = [
     `# ${venueName} - AI 분석 보고서`,
     "",
     report.summary,
+    "",
+    "## 측정 지표 (기준안 / Robbins / MR2S)",
+    "| 구분 | 도착률 | 사망 | 95% 대피시간 | 고압력 위험 노출 | 병목 구간 수 |",
+    "| --- | --- | --- | --- | --- | --- |",
+    formatMetricsRow("기준안 (양방향)", baseline),
+    formatMetricsRow("Robbins (최적화 없는 일방통행)", robbins),
+    formatMetricsRow("MR2S 최적화안", optimized),
     "",
     "## 주요 원인",
     ...report.causes.flatMap((c) => [`- **${c.title}**: ${c.evidence}`]),
@@ -43,7 +64,7 @@ function reportToMarkdown(venueName: string, report: ReportResult): string {
  * is a snapshot of "right now", not tied to a particular run being
  * finished, since a manager may want an early read before evacuation
  * completes. */
-export function ReportPanel({ venue, population, baseline, optimized }: ReportPanelProps) {
+export function ReportPanel({ venue, population, baseline, robbins, optimized }: ReportPanelProps) {
   const [loading, setLoading] = useState(false);
   const [report, setReport] = useState<ReportResult | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -52,14 +73,26 @@ export function ReportPanel({ venue, population, baseline, optimized }: ReportPa
     setLoading(true);
     setError(null);
     try {
-      const result = await generateReport({
+      // ReportRequest (src/api/upstageClient.ts) only declares baseline
+      // and optimized - it's out of this component's write scope, so
+      // rather than widen that shared type, `robbins` is passed as an
+      // extra field on the request payload (allowed structurally, since
+      // it isn't a plain object literal typed as ReportRequest at the
+      // call site). The server handler (api/_lib/reportHandler.ts,
+      // likewise out of scope) doesn't read it yet, so the AI-written
+      // prose itself still reasons over baseline vs. optimized only; the
+      // three-way comparison is guaranteed instead in the downloadable
+      // Markdown below, which this component fully controls.
+      const payload = {
         venueName: venue.name,
         nodeCount: venue.nodes.length,
         edgeCount: venue.edges.length,
         population,
         baseline: toRunMetrics(baseline),
+        robbins: toRunMetrics(robbins),
         optimized: toRunMetrics(optimized),
-      });
+      };
+      const result = await generateReport(payload);
       setReport(result);
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
@@ -70,7 +103,7 @@ export function ReportPanel({ venue, population, baseline, optimized }: ReportPa
 
   const handleDownload = () => {
     if (!report) return;
-    const markdown = reportToMarkdown(venue.name, report);
+    const markdown = reportToMarkdown(venue.name, report, baseline, robbins, optimized);
     const blob = new Blob([markdown], { type: "text/markdown" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");

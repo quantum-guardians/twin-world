@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import type { Venue } from "../domain/types";
 import { VenueSimulation, type SimulationOptions } from "./engine";
 import { FIXED_DT_MS } from "./socialForce";
+import { useSkipAhead } from "./useSkipAhead";
 
 // A frame that resumes after the tab was backgrounded can have an
 // arbitrarily large elapsed delta; capping the catch-up steps avoids a
@@ -15,6 +16,17 @@ export interface VenueSimulationControls {
   playbackRate: number;
   setPlaybackRate: (rate: number) => void;
   reset: () => void;
+  /** Runs the rest of the simulation to its settled end with no rendering,
+   * one time-boxed slice per animation frame - see useSkipAhead.ts.
+   * Ignored if a skip is already in progress. */
+  skipAhead: () => void;
+  /** Stops a running skip where it is. */
+  cancelSkip: () => void;
+  /** True while a skip is running, so UI can disable controls that would
+   * fight it and show progress instead. */
+  skipping: boolean;
+  /** 0 to 1 across the skip budget. */
+  skipProgress: number;
 }
 
 export interface VenueSimulationHandle {
@@ -33,11 +45,10 @@ export function useVenueSimulation(venue: Venue, options: SimulationOptions): Ve
   const [playbackRate, setPlaybackRate] = useState(1);
   const [version, setVersion] = useState(0);
   const [resetToken, setResetToken] = useState(0);
-
   const simulation = useMemo(
     () => new VenueSimulation(venue, options),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [venue, options.population, options.seed, options.urgency, resetToken]
+    [venue, options.population, options.seed, options.urgency, options.scenarioMode, resetToken]
   );
 
   const playingRef = useRef(playing);
@@ -74,12 +85,22 @@ export function useVenueSimulation(venue: Venue, options: SimulationOptions): Ve
     return () => cancelAnimationFrame(raf);
   }, [simulation]);
 
+  const { skipAhead, cancelSkip, skipping, skipProgress } = useSkipAhead(
+    useMemo(() => [simulation], [simulation]),
+    () => setVersion((v) => v + 1),
+    () => setPlaying(false) // stop the animation loop from also ticking while we skip
+  );
+
   const controls: VenueSimulationControls = {
     playing,
     setPlaying,
     playbackRate,
     setPlaybackRate,
     reset: () => setResetToken((t) => t + 1),
+    skipAhead,
+    cancelSkip,
+    skipping,
+    skipProgress,
   };
 
   return { simulation, controls, version };

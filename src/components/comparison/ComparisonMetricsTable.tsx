@@ -2,6 +2,7 @@ import type { VenueSimulation } from "../../simulation/engine";
 
 export interface ComparisonMetricsTableProps {
   baseline: VenueSimulation;
+  robbins: VenueSimulation;
   optimized: VenueSimulation;
 }
 
@@ -17,39 +18,65 @@ function deltaLabel(base: number, opt: number, lowerIsBetter: boolean): string {
   return `${sign}${diff.toFixed(1)} ${better ? "(개선)" : "(악화)"}`;
 }
 
-/** Side-by-side readout of the plan's headline comparison metrics (FR-08),
- * assuming both simulations were constructed with the same seed/population
- * (usePairedVenueSimulation enforces the shared clock; matching options is
- * the caller's responsibility - see ComparisonView). */
-export function ComparisonMetricsTable({ baseline, optimized }: ComparisonMetricsTableProps) {
+function secondsDelta(base: number | null, opt: number | null): string {
+  return base !== null && opt !== null ? deltaLabel(base, opt, true) : "측정 중";
+}
+
+/** Side-by-side readout of the plan's headline comparison metrics (FR-08)
+ * across all three orientations, assuming all three simulations were
+ * constructed with the same seed/population (usePairedVenueSimulation
+ * enforces the shared clock; matching options is the caller's
+ * responsibility - see ComparisonView). The 변화 column compares MR2S
+ * against 기준안 specifically - Robbins is shown for context (the fair
+ * one-way baseline) but isn't itself the thing MR2S is scored against. */
+export function ComparisonMetricsTable({ baseline, robbins, optimized }: ComparisonMetricsTableProps) {
   const baseMetrics = baseline.metrics();
+  const robbinsMetrics = robbins.metrics();
   const optMetrics = optimized.metrics();
+  const baseDead = baseline.counts().dead;
+  const robbinsDead = robbins.counts().dead;
+  const optDead = optimized.counts().dead;
 
   const rows = [
     {
       label: "도착률",
       base: `${baseMetrics.arrivalRatePercent.toFixed(0)}%`,
+      robbins: `${robbinsMetrics.arrivalRatePercent.toFixed(0)}%`,
       opt: `${optMetrics.arrivalRatePercent.toFixed(0)}%`,
       delta: deltaLabel(baseMetrics.arrivalRatePercent, optMetrics.arrivalRatePercent, false),
     },
     {
+      label: "사망",
+      base: `${baseDead}명`,
+      robbins: `${robbinsDead}명`,
+      opt: `${optDead}명`,
+      delta: deltaLabel(baseDead, optDead, true),
+    },
+    {
       label: "95% 대피시간",
       base: formatSeconds(baseMetrics.evacuationP95Seconds),
+      robbins: formatSeconds(robbinsMetrics.evacuationP95Seconds),
       opt: formatSeconds(optMetrics.evacuationP95Seconds),
-      delta:
-        baseMetrics.evacuationP95Seconds !== null && optMetrics.evacuationP95Seconds !== null
-          ? deltaLabel(baseMetrics.evacuationP95Seconds, optMetrics.evacuationP95Seconds, true)
-          : "측정 중",
+      delta: secondsDelta(baseMetrics.evacuationP95Seconds, optMetrics.evacuationP95Seconds),
+    },
+    {
+      label: "평균 도착 시간",
+      base: formatSeconds(baseMetrics.meanTravelSeconds),
+      robbins: formatSeconds(robbinsMetrics.meanTravelSeconds),
+      opt: formatSeconds(optMetrics.meanTravelSeconds),
+      delta: secondsDelta(baseMetrics.meanTravelSeconds, optMetrics.meanTravelSeconds),
     },
     {
       label: "병목 구간 수",
       base: `${baseline.bottleneckCorridorIds.size}`,
+      robbins: `${robbins.bottleneckCorridorIds.size}`,
       opt: `${optimized.bottleneckCorridorIds.size}`,
       delta: deltaLabel(baseline.bottleneckCorridorIds.size, optimized.bottleneckCorridorIds.size, true),
     },
     {
       label: "고압력 위험 노출",
       base: `${baseMetrics.highPressureExposed}명`,
+      robbins: `${robbinsMetrics.highPressureExposed}명`,
       opt: `${optMetrics.highPressureExposed}명`,
       delta: deltaLabel(baseMetrics.highPressureExposed, optMetrics.highPressureExposed, true),
     },
@@ -61,8 +88,9 @@ export function ComparisonMetricsTable({ baseline, optimized }: ComparisonMetric
         <tr>
           <th>지표</th>
           <th>기준안</th>
-          <th>최적화안</th>
-          <th>변화</th>
+          <th>Robbins</th>
+          <th>MR2S</th>
+          <th>변화 (MR2S vs 기준안)</th>
         </tr>
       </thead>
       <tbody>
@@ -70,6 +98,7 @@ export function ComparisonMetricsTable({ baseline, optimized }: ComparisonMetric
           <tr key={row.label}>
             <td>{row.label}</td>
             <td>{row.base}</td>
+            <td>{row.robbins}</td>
             <td>{row.opt}</td>
             <td>{row.delta}</td>
           </tr>

@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import type { Venue } from "../../domain/types";
+import type { ScenarioMode } from "../../simulation/engine";
 import { useVenueSimulation } from "../../simulation/useVenueSimulation";
 import { useAgentPovSelection } from "../../simulation/useAgentPovSelection";
 import { VenueScene } from "../../three/VenueScene";
@@ -11,7 +12,7 @@ import { FreeCamera } from "../../three/FreeCamera";
 import { SimulationControls } from "./SimulationControls";
 import { ScenarioInput } from "./ScenarioInput";
 import { CameraModeToolbar, type CameraMode } from "./CameraModeToolbar";
-import { DEFAULT_AGENT_COUNT } from "../../domain/simPresets";
+import { DEMO_SCENARIO_MODE, DEMO_SCENARIO_POPULATION, DEMO_SCENARIO_URGENCY } from "../../domain/simPresets";
 import { simulationAlerts } from "../../simulation/alerts";
 
 export interface VenueSimulationViewProps {
@@ -19,14 +20,19 @@ export interface VenueSimulationViewProps {
 }
 
 export function VenueSimulationView({ venue }: VenueSimulationViewProps) {
-  const [population, setPopulation] = useState(DEFAULT_AGENT_COUNT);
+  // Opens on the measured demo scenario, the same one the comparison view
+  // starts from - see DEMO_SCENARIO_POPULATION for the numbers behind
+  // these three values. A visitor who never touches a control still sees
+  // the crowding the venue was built to show.
+  const [population, setPopulation] = useState(DEMO_SCENARIO_POPULATION);
   // Fixed for now (task 5/6 scope). Baseline vs. MR2S-optimized comparison
   // runs (task 8) must share this same seed so both start from identical
   // spawn/destination assignments - see plan FR-09.
   const [seed] = useState(1);
-  const [urgency, setUrgency] = useState(0);
+  const [urgency, setUrgency] = useState(DEMO_SCENARIO_URGENCY);
+  const [scenarioMode, setScenarioMode] = useState<ScenarioMode>(DEMO_SCENARIO_MODE);
 
-  const { simulation, controls } = useVenueSimulation(venue, { population, seed, urgency });
+  const { simulation, controls } = useVenueSimulation(venue, { population, seed, urgency, scenarioMode });
   const counts = simulation.counts();
   const metrics = simulation.metrics();
   const bottleneckCount = simulation.bottleneckCorridorIds.size;
@@ -59,6 +65,12 @@ export function VenueSimulationView({ venue }: VenueSimulationViewProps) {
         metrics={metrics}
         bottleneckCount={bottleneckCount}
         elapsedSeconds={simulation.elapsedSeconds}
+        scenarioMode={scenarioMode}
+        onChangeScenarioMode={setScenarioMode}
+        onSkipAhead={controls.skipAhead}
+        skipping={controls.skipping}
+        skipProgress={controls.skipProgress}
+        onCancelSkip={controls.cancelSkip}
       />
       <CameraModeToolbar
         mode={cameraMode}

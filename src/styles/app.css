@@ -262,6 +262,62 @@ body {
   font-weight: 500;
 }
 
+/* Static graph-measure readout (APSP route-length sums) shown above
+   ComparisonMetricsTable - a different kind of number from the simulated
+   metrics below it, so it gets its own row rather than blending into
+   .compare-toolbar's flex-wrap layout. */
+.compare-route-lengths {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.3rem 1rem;
+  font-size: 0.8rem;
+  font-variant-numeric: tabular-nums;
+  color: var(--ink);
+}
+
+.compare-route-lengths-label {
+  color: var(--ink-muted);
+}
+
+/* Three simultaneously-rendered scenes (기준안 / Robbins / MR2S) side by
+   side, replacing the old single-scene toggle. Each pane is its own flex
+   column so its VenueScene (flex: 1) fills the remaining height under the
+   label. Three live WebGL canvases at once is heavy - see
+   ComparisonView's doc comment on why controls.skipAhead, not watching
+   all three play out live, is the intended way to read this screen. */
+.compare-scenes {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1px;
+  flex: 1;
+  min-height: 0;
+  background: var(--line);
+}
+
+.compare-scene-pane {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  background: var(--paper);
+}
+
+.compare-scene-label {
+  padding: 0.35rem 0.7rem;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--ink-muted);
+  background: var(--surface);
+  border-bottom: 1px solid var(--line);
+}
+
+@media (max-width: 900px) {
+  .compare-scenes {
+    grid-template-columns: 1fr;
+  }
+}
+
 .venue-scene canvas {
   display: block;
 }
