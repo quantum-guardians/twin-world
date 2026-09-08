@@ -29,6 +29,7 @@ function agent(overrides: Partial<AgentRuntimeState>): AgentRuntimeState {
     startNodeId: "s",
     targetNodeId: "t",
     state: "moving",
+    spawnedAtSeconds: 0,
     hairLengthM: 0.2,
     ...overrides,
   };

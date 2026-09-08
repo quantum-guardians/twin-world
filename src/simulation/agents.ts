@@ -123,17 +123,54 @@ function nodesOfKinds(venue: Venue, kinds: NodeKind[]): VenueNode[] {
   return venue.nodes.filter((n) => kinds.includes(n.kind));
 }
 
-/** Picks a spawn node (prefers "entrance") and a destination node (prefers
- * "destination"/"exit"), falling back to any node when a venue has none of
- * the preferred kind - e.g. a freshly started blank graph. */
+/**
+ * Which single scenario a run commits to - see the doc comment on
+ * SimulationOptions.scenarioMode in engine.ts for the user-facing meaning
+ * of each. Declared here (not in engine.ts, which imports from this file)
+ * to avoid an import cycle; engine.ts re-exports this same type so callers
+ * can keep importing ScenarioMode from either module.
+ */
+export type ScenarioMode = "evacuation" | "arrival" | "free";
+
+/** Picks a spawn node and a target node from the pools appropriate to the
+ * scenario mode, falling back to "any node" when a venue has none of the
+ * preferred kind yet - e.g. a freshly started blank graph. */
 export function pickSpawnTargetPair(
   venue: Venue,
+  mode: ScenarioMode,
   rng: () => number = Math.random
 ): [string, string] | null {
-  const entrances = nodesOfKinds(venue, ["entrance"]);
-  const targets = nodesOfKinds(venue, ["destination", "exit"]);
-  const startPool = entrances.length > 0 ? entrances : venue.nodes;
-  const targetPool = targets.length > 0 ? targets : venue.nodes;
+  let startPool: VenueNode[];
+  let targetPool: VenueNode[];
+
+  if (mode === "evacuation") {
+    // Everyone leaves: people are already inside, at the gates or at the
+    // stage plaza, all heading for an exit.
+    const spawnPoints = nodesOfKinds(venue, ["entrance", "destination"]);
+    // Fallback (evacuation): a freshly started blank graph has no
+    // entrance/destination nodes yet - spawn from any node so the
+    // simulation still runs on what the user just drew.
+    startPool = spawnPoints.length > 0 ? spawnPoints : venue.nodes;
+    const exits = nodesOfKinds(venue, ["exit"]);
+    // Fallback (evacuation): no exit node drawn yet - target any node
+    // rather than refusing to spawn anyone.
+    targetPool = exits.length > 0 ? exits : venue.nodes;
+  } else if (mode === "arrival") {
+    // Everyone comes in for the show: gates to the stage plaza only.
+    const entrances = nodesOfKinds(venue, ["entrance"]);
+    // Fallback (arrival): no entrance node drawn yet - spawn from any node.
+    startPool = entrances.length > 0 ? entrances : venue.nodes;
+    const destinations = nodesOfKinds(venue, ["destination"]);
+    // Fallback (arrival): no destination node drawn yet - target any node.
+    targetPool = destinations.length > 0 ? destinations : venue.nodes;
+  } else {
+    // Free: people go wherever they want - any node to any other node.
+    // This is the mode that stresses a one-way system hardest, since it
+    // demands every ordered pair be reachable.
+    startPool = venue.nodes;
+    targetPool = venue.nodes;
+  }
+
   if (startPool.length === 0 || targetPool.length === 0) return null;
 
   const start = startPool[Math.floor(rng() * startPool.length)];
@@ -175,6 +212,10 @@ export interface AgentRuntimeState {
    * "arrived", set by VenueSimulation.tick (not here - computeDesiredDirections
    * has no notion of wall-clock sim time). Used for the 95%-arrival metric. */
   arrivedAtSeconds?: number;
+  /** Simulation elapsedSeconds when this agent entered the venue. Travel
+   * time is arrivedAtSeconds - spawnedAtSeconds; agents spawn in batches
+   * over time, so arrivedAtSeconds alone is not how long anyone walked. */
+  spawnedAtSeconds: number;
   /** Visual-only hair length in meters, hanging from the head down the
    * back. Fixed at spawn so it doesn't flicker frame to frame. */
   hairLengthM: number;
@@ -184,6 +225,11 @@ export interface SpawnAgentDeps {
   world: SfmWorld;
   venue: Venue;
   adjacency: Map<string, AdjacencyEntry[]>;
+  /** Which scenario this agent's spawn/target pair is drawn from. */
+  mode: ScenarioMode;
+  /** Simulation clock at the moment of spawn; spawnAgent has no clock of
+   * its own. Stamped onto the returned agent as spawnedAtSeconds. */
+  elapsedSeconds: number;
   rng?: () => number;
   lastValidPositions?: Map<string, Point>;
 }
@@ -213,7 +259,7 @@ function isSpawnPositionFree(world: SfmWorld, position: Point, radius: number): 
  * materialize on top of the crowd inside.
  */
 export function spawnAgent(id: string, deps: SpawnAgentDeps): AgentRuntimeState | null {
-  const { world, venue, adjacency, rng = Math.random } = deps;
+  const { world, venue, adjacency, mode, elapsedSeconds, rng = Math.random } = deps;
   const nodePositions = new Map(venue.nodes.map((n) => [n.id, { x: n.x, y: n.y }]));
 
   let startPos: Point | null = null;
@@ -221,7 +267,7 @@ export function spawnAgent(id: string, deps: SpawnAgentDeps): AgentRuntimeState 
   let target: string | undefined;
   let path: string[] | null = null;
   for (let attempt = 0; attempt < MAX_SPAWN_PAIR_ATTEMPTS && startPos === null; attempt++) {
-    const pair = pickSpawnTargetPair(venue, rng);
+    const pair = pickSpawnTargetPair(venue, mode, rng);
     if (!pair) return null;
     const candidatePath = shortestPath(adjacency, pair[0], pair[1]);
     if (!candidatePath) continue;
@@ -281,6 +327,7 @@ export function spawnAgent(id: string, deps: SpawnAgentDeps): AgentRuntimeState 
     targetNodeId: target,
     state: waypoints.length > 1 ? "moving" : "arrived",
     speedFactor,
+    spawnedAtSeconds: elapsedSeconds,
     hairLengthM,
   };
 }

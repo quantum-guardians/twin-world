@@ -10,7 +10,10 @@ import {
   spawnAgent,
   type AdjacencyEntry,
   type AgentRuntimeState,
+  type ScenarioMode,
 } from "./agents";
+
+export type { ScenarioMode } from "./agents";
 import { createSfmWorld, rebuildWalls, stepSocialForce, type SfmWorld } from "./socialForce";
 import { updatePressureDeaths } from "./pressure";
 import { BottleneckTracker, computeArrivalMetrics, type ArrivalMetrics } from "./metrics";
@@ -22,6 +25,10 @@ export interface SimulationOptions {
   /** Rushing/panic level in [0, 1]; 0 = calm walking (default). See the
    * urgency section in domain/simPresets.ts. */
   urgency?: number;
+  /** Which single scenario this run commits to - see pickSpawnTargetPair
+   * in agents.ts for the exact spawn/target pools each mode draws from.
+   * Defaults to "evacuation". */
+  scenarioMode?: ScenarioMode;
 }
 
 // Density/bottleneck state is deliberately recomputed on a low-frequency
@@ -49,6 +56,7 @@ export class VenueSimulation {
 
   private readonly rng: () => number;
   private readonly urgency: number;
+  private readonly scenarioMode: ScenarioMode;
   private readonly bottleneckTracker = new BottleneckTracker();
   private pendingSpawnCount: number;
   private msSinceLastSpawnBatch = 0;
@@ -69,6 +77,7 @@ export class VenueSimulation {
     this.adjacency = buildAdjacency(venue);
     this.rng = mulberry32(options.seed);
     this.urgency = Math.max(0, Math.min(1, options.urgency ?? 0));
+    this.scenarioMode = options.scenarioMode ?? "evacuation";
     this.pendingSpawnCount = Math.max(0, Math.floor(options.population));
   }
 
@@ -90,6 +99,8 @@ export class VenueSimulation {
         world: this.world,
         venue: this.venue,
         adjacency: this.adjacency,
+        mode: this.scenarioMode,
+        elapsedSeconds: this.elapsedSeconds,
         rng: this.rng,
         lastValidPositions: this.lastValidPositions,
       });

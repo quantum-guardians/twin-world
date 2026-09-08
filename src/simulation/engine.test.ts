@@ -29,7 +29,12 @@ describe("VenueSimulation", () => {
   });
 
   it("moves spawned agents toward their destination and marks them arrived", () => {
-    const sim = new VenueSimulation(shortLineVenue(), { population: 3, seed: 7 });
+    // shortLineVenue has no exit node, so default (evacuation) mode would
+    // fall back to targeting any node - including the entrance - and send
+    // agents walking both directions on this single bidirectional corridor.
+    // Arrival mode (gate to destination only) matches what this test means
+    // to exercise: a one-way trip that actually completes.
+    const sim = new VenueSimulation(shortLineVenue(), { population: 3, seed: 7, scenarioMode: "arrival" });
     // Run enough ticks (a few seconds) for a 5 m trip at ~1.25 m/s to complete.
     for (let i = 0; i < 60 * 8; i++) sim.tick(TICK_MS);
     const counts = sim.counts();
@@ -54,5 +59,25 @@ describe("VenueSimulation", () => {
       return Array.from(sim.world.agents.values()).map((a) => [a.position.x, a.position.y]);
     };
     expect(runOnce()).toEqual(runOnce());
+  });
+
+  it("stamps agents spawned after the clock has advanced with a non-zero spawnedAtSeconds", () => {
+    const sim = new VenueSimulation(shortLineVenue(), { population: 5, seed: 5 });
+    // Well past ADD_AGENTS_BATCH_INTERVAL_MS (200ms) so the first spawn
+    // batch has already happened by the time the clock is read below.
+    for (let i = 0; i < 20; i++) sim.tick(TICK_MS);
+    expect(sim.agents.length).toBeGreaterThan(0);
+    for (const agent of sim.agents) {
+      expect(agent.spawnedAtSeconds).toBeGreaterThan(0);
+    }
+  });
+
+  it("sends agents to a destination node in arrival mode", () => {
+    const sim = new VenueSimulation(shortLineVenue(), { population: 3, seed: 8, scenarioMode: "arrival" });
+    for (let i = 0; i < 20; i++) sim.tick(TICK_MS);
+    expect(sim.agents.length).toBeGreaterThan(0);
+    for (const agent of sim.agents) {
+      expect(agent.targetNodeId).toBe("b"); // shortLineVenue's only destination node
+    }
   });
 });
