@@ -80,6 +80,50 @@ describe("computeArrivalMetrics", () => {
     const metrics = computeArrivalMetrics([...arrived19, agent({ id: "m1" })]);
     expect(metrics.evacuationP95Seconds).toBe(19);
   });
+
+  it("reports meanTravelSeconds and medianTravelSeconds as null when nobody has arrived", () => {
+    const agents = [agent({ id: "1", state: "moving" }), agent({ id: "2", state: "moving" })];
+    const metrics = computeArrivalMetrics(agents);
+    expect(metrics.meanTravelSeconds).toBeNull();
+    expect(metrics.medianTravelSeconds).toBeNull();
+  });
+
+  it("computes mean and median travel time from each agent's own spawn-to-arrival span", () => {
+    // Travel times: 10, 20, 30 (odd count - median is the middle value).
+    const agents = [
+      agent({ id: "1", state: "arrived", spawnedAtSeconds: 0, arrivedAtSeconds: 10 }),
+      agent({ id: "2", state: "arrived", spawnedAtSeconds: 5, arrivedAtSeconds: 25 }),
+      agent({ id: "3", state: "arrived", spawnedAtSeconds: 40, arrivedAtSeconds: 70 }),
+    ];
+    const metrics = computeArrivalMetrics(agents);
+    expect(metrics.meanTravelSeconds).toBeCloseTo(20, 5);
+    expect(metrics.medianTravelSeconds).toBeCloseTo(20, 5);
+  });
+
+  it("averages the two middle values for an even-sized travel-time sample", () => {
+    // Travel times: 10, 20, 30, 40 -> median is the mean of 20 and 30.
+    const agents = [
+      agent({ id: "1", state: "arrived", spawnedAtSeconds: 0, arrivedAtSeconds: 10 }),
+      agent({ id: "2", state: "arrived", spawnedAtSeconds: 0, arrivedAtSeconds: 20 }),
+      agent({ id: "3", state: "arrived", spawnedAtSeconds: 0, arrivedAtSeconds: 30 }),
+      agent({ id: "4", state: "arrived", spawnedAtSeconds: 0, arrivedAtSeconds: 40 }),
+    ];
+    const metrics = computeArrivalMetrics(agents);
+    expect(metrics.medianTravelSeconds).toBeCloseTo(25, 5);
+  });
+
+  it("distinguishes travel time for agents with identical arrival times but different spawn times", () => {
+    // Both arrive at t=100, but one spawned at t=40 (60s travel) and the
+    // other at t=90 (10s travel) - arrivedAtSeconds alone would wrongly
+    // treat these as the same duration.
+    const agents = [
+      agent({ id: "1", state: "arrived", spawnedAtSeconds: 40, arrivedAtSeconds: 100 }),
+      agent({ id: "2", state: "arrived", spawnedAtSeconds: 90, arrivedAtSeconds: 100 }),
+    ];
+    const metrics = computeArrivalMetrics(agents);
+    expect(metrics.meanTravelSeconds).toBeCloseTo(35, 5);
+    expect(metrics.medianTravelSeconds).toBeCloseTo(35, 5);
+  });
 });
 
 describe("BottleneckTracker", () => {
